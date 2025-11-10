@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8"/>
-  <title>gogrepo GUI</title>
+  <title>GOGrepo GUI</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -214,8 +214,44 @@
         .then(r=>r.json()).then(_=>{ /* status odbierze poller */ });
     }
 
+    // Naprawa: pobieranie i pokazanie okładki + opisu
+    function fetchInfoForSelected(){
+      const sel = document.getElementById('gameSelect');
+      if(!sel || sel.selectedIndex < 0) return;
+      const opt   = sel.options[sel.selectedIndex];
+      const pid   = (opt && opt.getAttribute('data-pid')) || '';
+      const title = sel.value || '';
+
+      const params = new URLSearchParams();
+      if(pid) params.set('product_id', pid);
+      if(title) params.set('title', title);
+
+      fetch('/game_info?' + params.toString())
+        .then(r => r.json())
+        .then(info => {
+          const img  = document.getElementById('gameCover');
+          const desc = document.getElementById('gameDesc');
+
+          const url = info && info.cover_url ? info.cover_url : '';
+          img.src = url || '';
+          img.style.display = url ? 'block' : 'none';
+
+          const d = document.createElement('div');
+          d.innerHTML = (info && info.description_html) ? info.description_html : '';
+          const txt = (d.textContent || d.innerText || '').trim();
+          desc.value = txt || 'Brak opisu.';
+        })
+        .catch(() => {
+          const img  = document.getElementById('gameCover');
+          const desc = document.getElementById('gameDesc');
+          img.src = '';
+          img.style.display = 'none';
+          desc.value = 'Brak danych.';
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', ()=>{
-      resumeIfRunning();     // klucz do zachowania postępu po reloadzie
+      resumeIfRunning();
       fetchInfoForSelected();
       document.getElementById('gameSelect')?.addEventListener('change', fetchInfoForSelected);
     });
