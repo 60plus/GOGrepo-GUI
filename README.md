@@ -20,7 +20,7 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 ## Features ✅
 
-- Two-step login flow integrated with `gogrepo` (OTP/2FA supported when prompted).  
+- Two-step login flow integrated with `gogrepo`.  
 - Update manifest with OS and language filters, plus:
   - `skipknown` — Only update new games in your library.  
   - `updateonly` — Only update games with the updated tag in your library.  
