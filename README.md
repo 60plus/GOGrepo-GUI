@@ -10,11 +10,11 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 ## Screenshots 📸
 
-<img src="static/sc1.png" width="50%" height="50%">
-![Download](static/sc2.png)
-![Details](static/sc3.png)
-
-> Place your `.png` screenshots in `static/` with the exact filenames above.
+<p align="center">
+  <img src="static/sc1.png" alt="Home" width="280" style="margin:6px;">
+  <img src="static/sc2.png" alt="Download" width="280" style="margin:6px;">
+  <img src="static/sc3.png" alt="Details" width="280" style="margin:6px;">
+</p>
 
 ---
 
@@ -30,18 +30,11 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 - Inline game details:
   - Description and cover fetched from GOG API with manifest fallback for robustness.  
 - Helpful hover tooltips on toggles:
-  - `skipknown`, `updateonly`, `skipextras`, `skipgames` show what each option does.
+  - `skipknown`, `updateonly`, `skipextras`, `skipgames` show what each option does.  
 
 
 
-
-
-
-
-
-
-
-
+---
 
 
 
