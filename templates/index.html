@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8"/>
+  <title>gogrepo GUI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="wrap">
+
+    <section class="grid">
+      <div class="card">
+        <div class="card-head">
+          <span class="status-dot {{ 'ok' if status.cookies else 'no' }}"></span>
+          LOGGED IN
+        </div>
+        <div class="card-body">
+          <form method="post" action="/login" class="login-form">
+            <div class="rows">
+              <label>USER</label>
+              <input type="text" name="username" required>
+            </div>
+            <div class="rows">
+              <label>PASSWORD</label>
+              <input type="password" name="password" required>
+            </div>
+            {% if status.need_2fa %}
+            <div class="rows">
+              <label>2FA CODE</label>
+              <input type="text" name="otp" placeholder="Code from email/app" autofocus required>
+              <input type="hidden" name="login_token" value="{{ status.login_token or '' }}">
+            </div>
+            {% else %}
+            <div class="rows">
+              <label>2FA CODE</label>
+              <input type="text" name="otp" placeholder="If already received">
+            </div>
+            {% endif %}
+            <button type="submit" class="btn primary">LOGIN</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">UPDATE</div>
+        <div class="card-body">
+          <div class="update-grid">
+            <form onsubmit="return launchUpdate(this)" class="update-form">
+              <div class="opts-line">
+                <label><input type="checkbox" name="skipknown"> skipknown</label>
+                <label><input type="checkbox" name="updateonly"> updateonly</label>
+              </div>
+              <div class="opts-line">
+                <span>OS:</span>
+                <label><input type="checkbox" name="os" value="windows"> win</label>
+                <label><input type="checkbox" name="os" value="linux"> lin</label>
+                <label><input type="checkbox" name="os" value="mac"> mac</label>
+              </div>
+              <div class="opts-line">
+                <span>langs:</span>
+                <input type="text" name="langs" placeholder="en pl de">
+              </div>
+              <button type="submit" class="btn secondary">UPDATE GAME LIST</button>
+            </form>
+            <div class="upd-logo">
+              <img src="{{ url_for('static', filename='logo.png') }}" alt="logo">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">DOWNLOAD</div>
+      <div class="card-body">
+        <form class="download-form" onsubmit="return false;">
+          <div class="dl-row">
+            <select id="gameSelect" class="select">
+              {% for g in games %}
+                <option value="{{ g.title }}" data-pid="{{ g.product_id or '' }}">{{ g.long_title or g.title }}</option>
+              {% endfor %}
+            </select>
+            <img id="gameCover" class="cover" alt="cover" />
+          </div>
+
+          <textarea id="gameDesc" class="desc" placeholder="Opis gry pojawi się tutaj po wybraniu gry z listy." readonly></textarea>
+
+          <div class="dl-opts">
+            <label><input type="checkbox" id="skipextras"> skipextras</label>
+            <label><input type="checkbox" id="skipgames"> skipgames</label>
+          </div>
+
+          <div class="dl-actions">
+            <button type="button" class="btn primary" onclick="downloadAll()">DOWNLOAD ALL</button>
+            <button type="button" class="btn primary" onclick="downloadSelected()">DOWNLOAD SELECTED</button>
+            <button type="button" class="btn danger" id="cancelBtn" onclick="cancelCurrent()" disabled>CANCEL</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">OUTPUT / LOG</div>
+      <div class="card-body">
+        <div class="progress">
+          <div id="bar" class="bar" style="width:0%"></div>
+          <span id="prog">0%</span>
+        </div>
+        <pre class="log" id="log">Czekam na output...</pre>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    let currentJobId = null;
+
+    function setLog(t){ const el=document.getElementById('log'); el.textContent=t||''; el.scrollTop=1e6; }
+    function setProg(p){
+      const val = Math.max(0, Math.min(100, p|0));
+      document.getElementById('prog').textContent = val + '%';
+      document.getElementById('bar').style.width = val + '%';
+    }
+    function setCancelEnabled(on){
+      const b=document.getElementById('cancelBtn');
+      if(on){ b.removeAttribute('disabled'); } else { b.setAttribute('disabled','disabled'); }
+    }
+
+    // Estymacja realnego progresu na podstawie logu (np. "(48 / 215)" albo "72%")
+    function estimateProgressFromOutput(txt){
+      if(!txt) return null;
+      const matches = [...txt.matchAll(/(?:\(|\[)\s*(\d+)\s*\/\s*(\d+)\s*(?:\)|\])/g)];
+      if(matches.length){
+        const m = matches[matches.length-1];
+        const a = parseInt(m[1],10), b = parseInt(m[2],10);
+        if(b > 0) return Math.max(1, Math.min(99, Math.floor(100*a/b)));
+      }
+      const pm = [...txt.matchAll(/(\d{1,3})%/g)];
+      if(pm.length){
+        const p = parseInt(pm[pm.length-1][1],10);
+        return Math.max(1, Math.min(99, p));
+      }
+      return null;
+    }
+
+    function pollJob(jobid){
+      currentJobId = jobid;
+      setCancelEnabled(true);
+      let fallback = 0;
+      function tick(){
+        fetch('/job_status/'+jobid).then(r=>r.json()).then(j=>{
+          setLog(j.output||'');
+          if(j.status==='running'){
+            const est = estimateProgressFromOutput(j.output||'');
+            if(est !== null) setProg(est); else { fallback = Math.min(95, fallback + 3); setProg(fallback); }
+            setTimeout(tick, 1000);
+          }else{
+            setProg(100);
+            setCancelEnabled(false);
+            currentJobId = null;
+          }
+        });
+      }
+      setProg(0);
+      tick();
+    }
+
+    // Wznowienie po reloadzie: sprawdź, czy coś działa, i wróć do pollingu
+    function resumeIfRunning(){
+      fetch('/current_job').then(r=>r.json()).then(d=>{
+        if(d && d.job_id && d.status === 'running'){
+          if(d.output) setLog(d.output);
+          pollJob(d.job_id);
+        }
+      });
+    }
+
+    function launchUpdate(form){
+      setProg(0); setLog('Starting update...');
+      fetch('/run_update',{method:'POST',body:new FormData(form)})
+        .then(r=>r.json()).then(d=>pollJob(d.job_id));
+      return false;
+    }
+
+    function buildDLForm(){
+      const fd=new FormData();
+      const sel=document.getElementById('gameSelect');
+      if(sel && sel.selectedIndex>=0) fd.set('selected_title', sel.value);
+      if(document.getElementById('skipextras').checked) fd.set('skipextras','on');
+      if(document.getElementById('skipgames').checked) fd.set('skipgames','on');
+      return fd;
+    }
+
+    function downloadSelected(){
+      setProg(0); setLog('Starting download (selected) ...');
+      fetch('/download_selected',{method:'POST',body:buildDLForm()})
+        .then(r=>r.json()).then(d=>{ if(d.job_id) pollJob(d.job_id); else setLog(d.error||'Error'); });
+    }
+
+    function downloadAll(){
+      setProg(0); setLog('Starting download (all) ...');
+      const fd=new FormData();
+      if(document.getElementById('skipextras').checked) fd.set('skipextras','on');
+      if(document.getElementById('skipgames').checked) fd.set('skipgames','on');
+      fetch('/download_all',{method:'POST',body:fd})
+        .then(r=>r.json()).then(d=>{ if(d.job_id) pollJob(d.job_id); else setLog('Error'); });
+    }
+
+    function cancelCurrent(){
+      const fd=new FormData();
+      if(currentJobId) fd.set('job_id', currentJobId);
+      fetch('/cancel_job',{method:'POST',body:fd})
+        .then(r=>r.json()).then(_=>{ /* status odbierze poller */ });
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      resumeIfRunning();     // klucz do zachowania postępu po reloadzie
+      fetchInfoForSelected();
+      document.getElementById('gameSelect')?.addEventListener('change', fetchInfoForSelected);
+    });
+  </script>
+</body>
+</html>
