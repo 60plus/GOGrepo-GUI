@@ -1,12 +1,15 @@
 services:
   gogrepo-gui:
-    build: .
-    container_name: gogrepo-gui
+    image: gogrepo-gui:latest
+    container_name: GOGrepo-gui
     ports:
       - "8080:8080"
-    volumes:
-      - ./data:/data
     environment:
-      - GOGREPO_DATA_DIR=/data
-      - FLASK_SECRET_KEY=change-me
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
+      - GOGREPO_DATA_DIR=/app/data
+      - PYTHON_BIN=python3
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
+    # Optional: run as your host user
+    # user: "${UID:-1000}:${GID:-1000}"
