@@ -45,6 +45,59 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 ---
 
+## How to use with Docker 🐳
+
+### 1) Clone the repository
+Make sure you have the project files locally (the build context must include the `Dockerfile`).  
+```
+git clone https://github.com/60plus/GOGrepo-GUI.git
+cd GOGrepo-GUI
+```
+
+### 2) Build a local image
+Build directly from the provided Dockerfile in the repo root.  
+```
+docker build -t gogrepo-gui:latest .
+```
+
+### 3) Run with docker run
+Run the container binding port 8080 and mounting a local `./data` folder to persist cookies and manifest.  
+```
+docker run -d --name gogrepo-gui \
+  -p 8080:8080 \
+  -v "$PWD/data:/app/data" \
+  -e FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-change-me}" \
+  -e GOGREPO_DATA_DIR="/app/data" \
+  -e PYTHON_BIN="python3" \
+  --restart unless-stopped \
+  gogrepo-gui:latest
+
+```
+Open http://localhost:8080 and use the UI; the server binds to 0.0.0.0:8080 and persists data under `/app/data`.
+
+
+### 4) Portainer Stack (Compose)
+Use this minimal Compose spec as a Portainer “Stack” for persistent deployment.  
+```
+version: "3.9"
+
+services:
+  gogrepo-gui:
+    image: gogrepo-gui:latest
+    container_name: gogrepo-gui
+    ports:
+      - "8080:8080"
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
+      - GOGREPO_DATA_DIR=/app/data
+      - PYTHON_BIN=python3
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    # Optional: run as your host user
+    # user: "${UID:-1000}:${GID:-1000}"
+
+```
 
 
 
@@ -52,6 +105,8 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 
 
+> [!TIP]
+> gogrepo.py in the repository still works on its own and can be used standalone if you prefer.
 
 
 
@@ -66,28 +121,9 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 
 <details>
-<summary>OLD INFO</summary>
+<summary>gogrepo.py INFO</summary>
 gogrepo
 -------
-Python-based tool for downloading your GOG.com game collections and extras to your local computer for full offline enjoyment.
-
-It is a clean standalone python script that can be run from anywhere. It requires a typical Python 2.7 installation and html5lib.
-
-By default, game folders are saved in the same location that the script is run in. You can also specify another
-directory. Run gogrepo.py -h to see help or read more below. Each game has its own directories with all game/bonus files saved within.
-
-License: GPLv3+
-
-Features
---------
-* Ability to choose which games to download based on combinations of OS (windows, linux, mac) and language (en, fr, de, etc...)
-* Saves a !info.txt in each game folder with information about each game/extra item.
-* Creates a !serial.txt if the game has a special serial/cdkey (I know, not 100% DRM-free, is it?). Sometimes coupon codes are hidden here!
-* Verify your downloaded collection with full MD5, zip integrity, and expected file size checking.
-* Auto retrying of failed fetch/downloads. Sometime GOG servers report temporary errors.
-* Ability to import your already existing local collection.
-* Easy to throw into a daily cronjob to get all the latest updates and newly added content!
-* Clear logging prints showing update/download progress and HTTP errors. Easy to pipe or tee to create a log file.
 
 
 Quick Start -- Typical Use Case
@@ -209,14 +245,4 @@ I recommend you use `pip` to install the above python modules.
 
   ``pip install html5lib html2text``
 
-TODO
-----
-* ~~add ability to update and download specific games or new-items only~~
-* add 'clean' command to orphan/remove old or unexpected files to keep your collection clean with only the latest files
-* support resuming manifest updating
-* ~~add support for incremental manifest updating (ie. only fetch newly added games) rather than fetching entire collection information~~
-* ability to customize/remap default game directory name
-* add GOG movie support
-* ... feel free to contact me with ideas or feature requests!
-
-* </details>
+</details>
