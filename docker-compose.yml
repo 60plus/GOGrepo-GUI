@@ -1,0 +1,12 @@
+services:
+  gogrepo-gui:
+    build: .
+    container_name: gogrepo-gui
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      - GOGREPO_DATA_DIR=/data
+      - FLASK_SECRET_KEY=change-me
+    restart: unless-stopped
