@@ -10,7 +10,7 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 ## Screenshots 📸
 
-![Home](static/sc1.png)
+<img src="static/sc1.png" width="50%" height="50%">
 ![Download](static/sc2.png)
 ![Details](static/sc3.png)
 
