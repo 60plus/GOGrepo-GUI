@@ -45,7 +45,7 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
 
 ---
 
-## How to use with Docker 🐳
+## To build the Docker image locally 🐳
 
 ### 1) Clone the repository
 Make sure you have the project files locally (the build context must include the `Dockerfile`).  
@@ -99,8 +99,47 @@ services:
 
 ```
 
+## Prebuilt Docker Images 🐳
 
+### Prebuilt Docker images are available at:
+```
+60plus/gogrepo-gui:latest
+```
 
+You can run the container directly with Docker:
+```
+docker run -d --name gogrepo-gui \
+  -p 8080:8080 \
+  -v "$PWD/data:/app/data" \
+  -e FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-change-me}" \
+  -e GOGREPO_DATA_DIR="/app/data" \
+  -e PYTHON_BIN="python3" \
+  --restart unless-stopped \
+  60plus/gogrepo-gui:latest
+
+```
+Alternatively, you can deploy it easily using Portainer Stack.
+Here’s an example stack definition:
+```
+version: "3.9"
+
+services:
+  gogrepo-gui:
+    image: 60plus/gogrepo-gui:latest
+    container_name: gogrepo-gui
+    ports:
+      - "8080:8080"
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
+      - GOGREPO_DATA_DIR=/app/data
+      - PYTHON_BIN=python3
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    # Optional: run as your host user
+    # user: "${UID:-1000}:${GID:-1000}"
+
+```
 
 
 
