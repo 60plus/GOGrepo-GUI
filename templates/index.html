@@ -107,7 +107,7 @@
           <div id="bar" class="bar" style="width:0%"></div>
           <span id="prog">0%</span>
         </div>
-        <pre class="log" id="log">Czekam na output...</pre>
+        <pre class="log" id="log">NO output...</pre>
       </div>
     </section>
 
@@ -239,7 +239,7 @@
           const d = document.createElement('div');
           d.innerHTML = (info && info.description_html) ? info.description_html : '';
           const txt = (d.textContent || d.innerText || '').trim();
-          desc.value = txt || 'Brak opisu.';
+          desc.value = txt || 'No description.';
         })
         .catch(() => {
           const img  = document.getElementById('gameCover');
