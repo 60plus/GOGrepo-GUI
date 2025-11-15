@@ -31,6 +31,9 @@ PY      = os.environ.get("PYTHON_BIN", "python3")
 MANIFEST = os.path.join(DATA_DIR, "gog-manifest.dat")
 COOKIES  = os.path.join(DATA_DIR, "gog-cookies.dat")
 
+# Download directory for checking downloaded games
+DOWNLOAD_DIR = os.environ.get("GOGREPO_DOWNLOAD_DIR", DATA_DIR)
+
 CACHE_DIR = os.path.join(DATA_DIR, "Cache")
 DESC_DIR  = os.path.join(CACHE_DIR, "desc")
 COVER_DIR = os.path.join(CACHE_DIR, "cover")
@@ -186,6 +189,38 @@ def _format_date(date_str: str) -> str:
         pass
     return date_str
 
+def normalize_game_folder_name(title: str) -> str:
+    """
+    Convert game title to expected folder name format
+    Example: 'Blood: Fresh Supply' -> 'blood_fresh_supply'
+    """
+    if not title:
+        return ""
+    
+    normalized = title.lower().strip()
+    # Remove special characters
+    normalized = re.sub(r'[:\'"!?.,™®©]', '', normalized)
+    # Replace spaces and multiple underscores/dashes with single underscore
+    normalized = re.sub(r'[\s\-_]+', '_', normalized)
+    # Remove leading/trailing underscores
+    normalized = normalized.strip('_')
+    return normalized
+
+def is_game_downloaded(title: str) -> bool:
+    """
+    Check if game folder exists in download directory
+    """
+    if not title:
+        return False
+    
+    folder_name = normalize_game_folder_name(title)
+    if not folder_name:
+        return False
+    
+    game_path = os.path.join(DOWNLOAD_DIR, folder_name)
+    
+    return os.path.isdir(game_path)
+
 def _scrape_gog_page(title: str) -> Optional[dict]:
     """Scrape game details from GOG product page"""
     page_url = f"https://www.gog.com/en/game/{title}"
@@ -321,7 +356,7 @@ def fetch_game_info_combined(product_id: str, title: str) -> dict:
                          manifest_data.get("name") or 
                          title)
     
-    # Fallback: replace underscores with spaces and capitalize
+    # Fallback: if still has underscores, replace them
     if '_' in full_title:
         full_title = full_title.replace('_', ' ').title()
     
@@ -624,7 +659,13 @@ def _load_manifest_raw():
 
 def load_manifest_games():
     raw = _load_manifest_raw()
-    return _extract_games_from_obj(raw) if raw is not None else []
+    games = _extract_games_from_obj(raw) if raw is not None else []
+    
+    # Add download status to each game
+    for game in games:
+        game['is_downloaded'] = is_game_downloaded(game['title'])
+    
+    return games
 
 def _find_game_raw_by_title(slug: str):
     data = _load_manifest_raw()
@@ -812,6 +853,17 @@ def game_info():
     title = (request.args.get("title") or "").strip()
     info = fetch_game_info_combined(pid, title)
     return jsonify(info)
+
+@app.route("/check_downloaded/<title>")
+def check_downloaded(title):
+    """Check if a specific game is downloaded"""
+    is_dl = is_game_downloaded(title)
+    folder_name = normalize_game_folder_name(title)
+    return jsonify({
+        "is_downloaded": is_dl,
+        "folder_name": folder_name,
+        "path": os.path.join(DOWNLOAD_DIR, folder_name)
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
