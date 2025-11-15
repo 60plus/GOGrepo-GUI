@@ -7,6 +7,7 @@ services:
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
+      - GOGREPO_DOWNLOAD_DIR=/app/data
       - PYTHON_BIN=python3
     volumes:
       - ./data:/app/data
