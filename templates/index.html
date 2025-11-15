@@ -17,10 +17,14 @@
             </div>
             <div class="game-list" id="gameList">
                 {% for game in games %}
-                <div class="game-item" 
+                <div class="game-item{% if game.is_downloaded %} downloaded{% endif %}" 
                      data-title="{{ game.title }}" 
-                     data-product-id="{{ game.product_id or '' }}">
+                     data-product-id="{{ game.product_id or '' }}"
+                     data-downloaded="{{ 'true' if game.is_downloaded else 'false' }}">
                     {{ game.long_title }}
+                    {% if game.is_downloaded %}
+                    <i class="fas fa-check-circle downloaded-icon" title="Already downloaded"></i>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
