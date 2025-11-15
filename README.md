@@ -26,7 +26,11 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
   - `updateonly` — Only update games with the updated tag in your library.  
 - Download options:
   - Download all titles, or a single selected game from your library.  
-  - Real-time output panel with progress estimation and a Cancel button.  
+  - Real-time output panel with progress estimation and a Cancel button.
+- Downloaded games indicator
+  - Automatic detection based on folder existence in download directory.
+  - Checks game folders using normalized names (e.g., "blood_fresh_supply").
+  - Visual markers (✅ icon and green accent) for already downloaded games in the library.
 - Inline game details:
   - Description and cover fetched from GOG API with manifest fallback for robustness.
 - Disk cache for descriptions and covers: 
