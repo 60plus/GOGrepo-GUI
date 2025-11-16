@@ -191,7 +191,7 @@
             </div>
 
             <div class="vnc-container">
-                <iframe src="/vnc/vnc.html?autoconnect=true&resize=scale" allowfullscreen></iframe>
+                <iframe id="vncFrame" allowfullscreen></iframe>
             </div>
 
             <div class="button-container">
@@ -208,6 +208,11 @@
     </div>
 
     <script>
+        // Get the current host and construct noVNC URL on port 6080
+        const hostname = window.location.hostname;
+        const vncUrl = `http://${hostname}:6080/vnc.html?autoconnect=true&resize=scale`;
+        document.getElementById('vncFrame').src = vncUrl;
+
         function showStatus(message, type) {
             const statusEl = document.getElementById('statusMessage');
             statusEl.textContent = message;
