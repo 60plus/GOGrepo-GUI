@@ -95,6 +95,8 @@ def index():
         'cookies': os.path.exists(COOKIES),
         'manifest': os.path.exists(MANIFEST)
     }
+    if not status['cookies']:
+        return redirect(url_for('setup'))
     return render_template('index.html', status=status, games=[])
 
 @app.route('/setup')
