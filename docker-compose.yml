@@ -1,16 +1,35 @@
+version: '3.9'
+
 services:
   gogrepo-gui:
+    build: .
     image: gogrepo-gui:latest
-    container_name: GOGrepo-gui
+    container_name: gogrepo-gui
     ports:
+      # Flask GUI (GOGrepo-GUI)
       - "8080:8080"
+      # noVNC for browser access
+      - "6080:6080"
+      # Cookie extractor web interface
+      - "3000:3000"
     environment:
+      # Flask configuration
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
       - GOGREPO_DOWNLOAD_DIR=/app/data
       - PYTHON_BIN=python3
+      
+      # Display and VNC configuration
+      - DISPLAY=:99
+      - VNC_PORT=6080
+      - FLASK_PORT=8080
+      - CHROME_PROFILE=/tmp/chrome-profile
+    
     volumes:
+      # Persistent data storage
       - ./data:/app/data
+    
     restart: unless-stopped
+    
     # Optional: run as your host user
     # user: "${UID:-1000}:${GID:-1000}"
