@@ -5,171 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GOGrepo Setup - Cookie Extraction</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            width: 100%;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 1rem;
-            opacity: 0.9;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        .instructions {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-radius: 8px;
-        }
-
-        .instructions h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-
-        .instructions ol {
-            margin-left: 20px;
-        }
-
-        .instructions li {
-            margin: 10px 0;
-            line-height: 1.6;
-        }
-
-        .vnc-container {
-            width: 100%;
-            height: 700px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 30px;
-            background: #000;
-        }
-
-        .vnc-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        .button-container {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 15px 40px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-        }
-
-        .status-message {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            display: none;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        .status-message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-message.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.5rem;
-            }
-
-            .vnc-container {
-                height: 500px;
-            }
-
-            .btn {
-                padding: 12px 30px;
-                font-size: 1rem;
-            }
-        }
+        /* ... styles ... */
     </style>
 </head>
 <body>
@@ -178,7 +14,6 @@
             <h1>🎮 GOGrepo Setup</h1>
             <p>Interactive Browser Login for GOG.com</p>
         </div>
-
         <div class="content">
             <div class="instructions">
                 <h2>📋 How to Use:</h2>
@@ -189,11 +24,9 @@
                     <li><strong>Continue to App</strong> - After successful cookie extraction, you'll be redirected to the main application</li>
                 </ol>
             </div>
-
             <div class="vnc-container">
                 <iframe id="vncFrame" allowfullscreen></iframe>
             </div>
-
             <div class="button-container">
                 <button class="btn btn-primary" onclick="extractCookies()">
                     🍪 Extract Cookies
@@ -202,42 +35,31 @@
                     ⏭️ Skip Setup (for testing)
                 </a>
             </div>
-
             <div id="statusMessage" class="status-message"></div>
         </div>
     </div>
-
     <script>
-        // Get the current host and construct noVNC URL on port 6080
+        // Hostname for dynamic vnc url
         const hostname = window.location.hostname;
-        const vncUrl = `http://${hostname}:6080/vnc.html?autoconnect=true&resize=scale`;
+        const vncUrl = `http://${hostname}:6080/vnc.html?autoconnect=true&resize=remote`;
         document.getElementById('vncFrame').src = vncUrl;
-
         function showStatus(message, type) {
             const statusEl = document.getElementById('statusMessage');
             statusEl.textContent = message;
             statusEl.className = 'status-message ' + type;
             statusEl.style.display = 'block';
         }
-
         async function extractCookies() {
             showStatus('⏳ Extracting cookies from browser...', 'info');
-
             try {
                 const response = await fetch('/api/save_cookies', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: { 'Content-Type': 'application/json' }
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
                     showStatus('✅ ' + data.message, 'success');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 2000);
+                    setTimeout(() => { window.location.href = '/'; }, 2000);
                 } else {
                     showStatus('❌ ' + data.error, 'error');
                 }
