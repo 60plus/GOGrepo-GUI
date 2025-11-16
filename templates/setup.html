@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOGrepo Setup - Browser Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 1400px;
+            overflow: hidden;
+        }
+
+        .setup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .setup-header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .setup-header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .setup-content {
+            padding: 30px;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .info-box ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .info-box li {
+            margin-bottom: 8px;
+        }
+
+        .browser-container {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .browser-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .vnc-frame-container {
+            width: 100%;
+            height: 600px;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .vnc-frame-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .vnc-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-indicator.ready {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-indicator.waiting {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status-indicator.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            color: #0c5460;
+        }
+
+        @media (max-width: 768px) {
+            .setup-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .vnc-frame-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>🚀 GOGrepo Setup</h1>
+            <p>Interactive Browser Login for GOG.com</p>
+        </div>
+
+        <div class="setup-content">
+            <div id="messageContainer"></div>
+
+            <div class="info-box">
+                <h3>📖 How to Use:</h3>
+                <ol>
+                    <li><strong>Start Browser</strong> - Click "Start Browser" to launch Chromium in the VNC window below</li>
+                    <li><strong>Log in to GOG</strong> - Navigate to GOG.com, log in with your credentials, complete 2FA and CAPTCHA if needed</li>
+                    <li><strong>Extract Cookies</strong> - Once logged in, click "Extract Cookies" to save your session</li>
+                    <li><strong>Continue to App</strong> - After successful cookie extraction, you'll be redirected to the main application</li>
+                </ol>
+            </div>
+
+            <div class="browser-container">
+                <div class="browser-controls">
+                    <button class="btn btn-primary" id="startBrowserBtn" onclick="startBrowser()">
+                        ▶️ Start Browser
+                    </button>
+                    <button class="btn btn-danger" id="stopBrowserBtn" onclick="stopBrowser()" disabled>
+                        ⏹️ Stop Browser
+                    </button>
+                    <button class="btn btn-success" id="extractCookiesBtn" onclick="extractCookies()" disabled>
+                        🍪 Extract Cookies
+                    </button>
+                    <span class="status-indicator waiting" id="cookiesStatus">
+                        {% if status.cookies_exist %}Cookies Present{% else %}No Cookies{% endif %}
+                    </span>
+                </div>
+
+                <div class="vnc-frame-container">
+                    <div class="vnc-overlay" id="vncOverlay">
+                        <div class="spinner"></div>
+                        <div>Click "Start Browser" to begin</div>
+                    </div>
+                    <iframe id="vncFrame" src="about:blank" style="display: none;"></iframe>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="skipSetup()">
+                    Skip Setup (for testing)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const NOVNC_PORT = '{{ status.novnc_port }}';
+        const NOVNC_URL = `http://${window.location.hostname}:${NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale`;
+        
+        let browserRunning = {{ 'true' if status.browser_running else 'false' }};
+        let statusCheckInterval = null;
+
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            container.appendChild(messageDiv);
+
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        function updateUI() {
+            const startBtn = document.getElementById('startBrowserBtn');
+            const stopBtn = document.getElementById('stopBrowserBtn');
+            const extractBtn = document.getElementById('extractCookiesBtn');
+            const vncFrame = document.getElementById('vncFrame');
+            const vncOverlay = document.getElementById('vncOverlay');
+
+            if (browserRunning) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                extractBtn.disabled = false;
+                vncFrame.style.display = 'block';
+                vncOverlay.style.display = 'none';
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                extractBtn.disabled = true;
+                vncFrame.style.display = 'none';
+                vncOverlay.style.display = 'flex';
+            }
+        }
+
+        async function startBrowser() {
+            const startBtn = document.getElementById('startBrowserBtn');
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Starting...';
+
+            try {
+                const response = await fetch('/api/browser/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: 'https://www.gog.com/'})
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    browserRunning = true;
+                    document.getElementById('vncFrame').src = NOVNC_URL;
+                    showMessage('Browser started successfully! Log in to GOG.com', 'success');
+                    updateUI();
+                    startStatusCheck();
+                } else {
+                    showMessage('Failed to start browser: ' + (result.error || result.message), 'error');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '▶️ Start Browser';
+                }
+            } catch (error) {
+                showMessage('Error starting browser: ' + error.message, 'error');
+                startBtn.disabled = false;
+                startBtn.textContent = '▶️ Start Browser';
+            }
+        }
+
+        async function stopBrowser() {
+            const stopBtn = document.getElementById('stopBrowserBtn');
+            stopBtn.disabled = true;
+            stopBtn.textContent = '⏳ Stopping...';
+
+            try {
+                const response = await fetch('/api/browser/stop', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    browserRunning = false;
+                    document.getElementById('vncFrame').src = 'about:blank';
+                    showMessage('Browser stopped', 'info');
+                    updateUI();
+                    stopStatusCheck();
+                } else {
+                    showMessage('Failed to stop browser: ' + (result.error || result.message), 'error');
+                }
+            } catch (error) {
+                showMessage('Error stopping browser: ' + error.message, 'error');
+            } finally {
+                stopBtn.disabled = false;
+                stopBtn.textContent = '⏹️ Stop Browser';
+            }
+        }
+
+        async function extractCookies() {
+            const extractBtn = document.getElementById('extractCookiesBtn');
+            extractBtn.disabled = true;
+            extractBtn.textContent = '⏳ Extracting...';
+
+            try {
+                const response = await fetch('/api/cookies/extract', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(`Success! Extracted ${result.cookies_count} cookies. Redirecting to main app...`, 'success');
+                    
+                    // Update cookies status
+                    const cookiesStatus = document.getElementById('cookiesStatus');
+                    cookiesStatus.className = 'status-indicator ready';
+                    cookiesStatus.textContent = 'Cookies Ready';
+
+                    // Stop browser and redirect after 2 seconds
+                    setTimeout(() => {
+                        stopBrowser().then(() => {
+                            window.location.href = '/';
+                        });
+                    }, 2000);
+                } else {
+                    showMessage('Failed to extract cookies: ' + (result.error || 'Unknown error'), 'error');
+                    extractBtn.disabled = false;
+                    extractBtn.textContent = '🍪 Extract Cookies';
+                }
+            } catch (error) {
+                showMessage('Error extracting cookies: ' + error.message, 'error');
+                extractBtn.disabled = false;
+                extractBtn.textContent = '🍪 Extract Cookies';
+            }
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/browser/status');
+                const status = await response.json();
+
+                if (status.browser_running !== browserRunning) {
+                    browserRunning = status.browser_running;
+                    updateUI();
+                }
+
+                const cookiesStatus = document.getElementById('cookiesStatus');
+                if (status.cookies_exist) {
+                    cookiesStatus.className = 'status-indicator ready';
+                    cookiesStatus.textContent = 'Cookies Present';
+                } else {
+                    cookiesStatus.className = 'status-indicator waiting';
+                    cookiesStatus.textContent = 'No Cookies';
+                }
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        function startStatusCheck() {
+            if (!statusCheckInterval) {
+                statusCheckInterval = setInterval(checkStatus, 3000);
+            }
+        }
+
+        function stopStatusCheck() {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+                statusCheckInterval = null;
+            }
+        }
+
+        async function skipSetup() {
+            if (confirm('This is for testing only. Are you sure you want to skip setup?')) {
+                window.location.href = '/';
+            }
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            updateUI();
+            checkStatus();
+            startStatusCheck();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopStatusCheck();
+        });
+    </script>
+</body>
+</html>
