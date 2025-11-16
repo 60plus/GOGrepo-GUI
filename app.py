@@ -12,6 +12,7 @@ import traceback
 import re
 from typing import Optional
 from datetime import datetime
+from werkzeug.utils import secure_filename
 
 import pexpect
 import requests
@@ -687,6 +688,77 @@ def _find_game_raw_by_title(slug: str):
             return g
     return None
 
+def parse_netscape_cookies(content: str) -> list:
+    """Parse Netscape cookies.txt format"""
+    cookies = []
+    for line in content.split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        try:
+            parts = line.split('\t')
+            if len(parts) >= 7:
+                domain, flag, path, secure, expiration, name, value = parts[:7]
+                cookies.append({
+                    'domain': domain,
+                    'flag': flag,
+                    'path': path,
+                    'secure': secure == 'TRUE',
+                    'expiration': expiration,
+                    'name': name,
+                    'value': value
+                })
+        except Exception as e:
+            app.logger.warning(f"Failed to parse cookie line: {line}")
+            continue
+    return cookies
+
+def save_cookies_to_lwp(cookies: list) -> bool:
+    """Convert and save cookies to LWP format used by gogrepo"""
+    try:
+        import http.cookiejar as cookiejar
+        from urllib.parse import urlparse
+        
+        jar = cookiejar.LWPCookieJar(COOKIES)
+        
+        for cookie_data in cookies:
+            # Filter only GOG-related cookies
+            if 'gog.com' not in cookie_data['domain']:
+                continue
+                
+            cookie = cookiejar.Cookie(
+                version=0,
+                name=cookie_data['name'],
+                value=cookie_data['value'],
+                port=None,
+                port_specified=False,
+                domain=cookie_data['domain'],
+                domain_specified=True,
+                domain_initial_dot=cookie_data['domain'].startswith('.'),
+                path=cookie_data['path'],
+                path_specified=True,
+                secure=cookie_data['secure'],
+                expires=int(cookie_data['expiration']) if cookie_data['expiration'].isdigit() else None,
+                discard=False,
+                comment=None,
+                comment_url=None,
+                rest={},
+                rfc2109=False
+            )
+            jar.set_cookie(cookie)
+        
+        if len(jar) == 0:
+            app.logger.error("No GOG cookies found in uploaded file")
+            return False
+            
+        jar.save(ignore_discard=True, ignore_expires=True)
+        app.logger.info(f"Saved {len(jar)} cookies to {COOKIES}")
+        return True
+        
+    except Exception as e:
+        app.logger.exception("Failed to save cookies")
+        return False
+
 login_children = {}
 
 @app.route("/")
@@ -761,6 +833,41 @@ def login():
         flash("Timeout during login", "error")
     except Exception as e:
         flash(f"Login error: {e}", "error")
+    return redirect(url_for("index"))
+
+@app.route("/import_cookies", methods=["POST"])
+def import_cookies():
+    """Import cookies from browser export (cookies.txt format)"""
+    try:
+        if 'cookies_file' not in request.files:
+            flash("No file uploaded", "error")
+            return redirect(url_for("index"))
+        
+        file = request.files['cookies_file']
+        if file.filename == '':
+            flash("No file selected", "error")
+            return redirect(url_for("index"))
+        
+        if not file.filename.endswith('.txt'):
+            flash("Please upload a .txt file", "error")
+            return redirect(url_for("index"))
+        
+        content = file.read().decode('utf-8')
+        cookies = parse_netscape_cookies(content)
+        
+        if not cookies:
+            flash("No valid cookies found in file", "error")
+            return redirect(url_for("index"))
+        
+        if save_cookies_to_lwp(cookies):
+            flash(f"Successfully imported {len(cookies)} cookies. You can now update your game list.", "success")
+        else:
+            flash("Failed to save cookies. Make sure the file contains GOG cookies.", "error")
+        
+    except Exception as e:
+        app.logger.exception("Cookie import failed")
+        flash(f"Cookie import error: {str(e)}", "error")
+    
     return redirect(url_for("index"))
 
 @app.route("/run_update", methods=["POST"])
