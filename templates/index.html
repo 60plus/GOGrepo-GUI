@@ -98,31 +98,22 @@
 
         <!-- RIGHT SIDEBAR: Functions -->
         <div class="right-sidebar">
-            <!-- Login Card -->
+            <!-- Login Status Card -->
             <div class="card">
                 <div class="card-header">
                     <span class="status-dot {% if status.cookies %}ok{% endif %}"></span>
                     <i class="fas fa-user"></i>
-                    LOGGED IN
+                    LOGIN STATUS
                 </div>
                 <div class="card-body">
-                    {% if status.need_2fa %}
-                    <form method="POST" action="{{ url_for('login') }}" class="compact-form">
-                        <input type="hidden" name="login_token" value="{{ status.login_token }}">
-                        <input type="text" name="otp" placeholder="2FA Code (optional)" autocomplete="off">
-                        <button type="submit" class="btn primary">
-                            <i class="fas fa-key"></i> Submit 2FA
-                        </button>
-                    </form>
+                    {% if status.cookies %}
+                    <div class="status-message success">
+                        <i class="fas fa-check-circle"></i> Cookies loaded successfully
+                    </div>
                     {% else %}
-                    <form method="POST" action="{{ url_for('login') }}" class="compact-form">
-                        <input type="text" name="username" placeholder="Username" autocomplete="username" required>
-                        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
-                        <input type="text" name="otp" placeholder="2FA Code (optional)" autocomplete="off">
-                        <button type="submit" class="btn primary">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </button>
-                    </form>
+                    <div class="status-message error">
+                        <i class="fas fa-exclamation-circle"></i> No cookies found. Please complete setup.
+                    </div>
                     {% endif %}
                 </div>
             </div>
