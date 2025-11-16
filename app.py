@@ -16,7 +16,7 @@ from datetime import datetime
 import pexpect
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, send_from_directory, Response
 
 # Import VNC browser manager
 from vnc_browser import get_browser_manager
@@ -36,6 +36,10 @@ COOKIES  = os.path.join(DATA_DIR, "gog-cookies.dat")
 
 # Download directory for checking downloaded games
 DOWNLOAD_DIR = os.environ.get("GOGREPO_DOWNLOAD_DIR", DATA_DIR)
+
+# noVNC configuration
+NOVNC_HOST = os.environ.get("NOVNC_HOST", "localhost")
+NOVNC_PORT = os.environ.get("NOVNC_PORT", "6080")
 
 CACHE_DIR = os.path.join(DATA_DIR, "Cache")
 DESC_DIR  = os.path.join(CACHE_DIR, "desc")
@@ -714,8 +718,49 @@ def setup():
     """Setup page with VNC browser for interactive login"""
     browser_mgr = get_browser_manager()
     status = browser_mgr.get_status()
-    status['novnc_port'] = os.environ.get('NOVNC_PORT', '6080')
+    status['novnc_port'] = NOVNC_PORT
     return render_template("setup.html", status=status)
+
+# noVNC Proxy Routes
+@app.route('/vnc/<path:path>')
+def vnc_proxy(path):
+    """Proxy noVNC requests through Flask to avoid port issues"""
+    try:
+        vnc_url = f"http://{NOVNC_HOST}:{NOVNC_PORT}/{path}"
+        
+        # Forward query parameters
+        if request.query_string:
+            vnc_url += f"?{request.query_string.decode('utf-8')}"
+        
+        resp = requests.get(vnc_url, stream=True, timeout=30)
+        
+        # Create response with proper headers
+        response = Response(
+            resp.iter_content(chunk_size=8192),
+            status=resp.status_code,
+            content_type=resp.headers.get('Content-Type', 'application/octet-stream')
+        )
+        
+        # Forward important headers
+        for header in ['Content-Length', 'Content-Encoding', 'Cache-Control']:
+            if header in resp.headers:
+                response.headers[header] = resp.headers[header]
+        
+        return response
+        
+    except Exception as e:
+        app.logger.exception(f"VNC proxy error for path {path}")
+        return jsonify({"error": f"VNC proxy failed: {str(e)}"}), 500
+
+@app.route('/vnc/websockify')
+def vnc_websockify():
+    """WebSocket proxy endpoint - note: This needs special handling"""
+    # WebSocket upgrade needs to be handled differently
+    # For now, return error - websockify will work via direct port access
+    return jsonify({
+        "error": "WebSocket proxy not implemented",
+        "message": "Use direct port access or configure nginx/apache proxy for WebSocket"
+    }), 501
 
 @app.route("/api/browser/start", methods=["POST"])
 def api_browser_start():
