@@ -6,6 +6,87 @@
     <title>GOGrepo Downloader</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .cookie-import-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+        }
+        .cookie-import-toggle {
+            cursor: pointer;
+            color: #6c9bff;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .cookie-import-toggle:hover {
+            color: #8eb4ff;
+        }
+        .cookie-import-content {
+            display: none;
+            margin-top: 10px;
+        }
+        .cookie-import-content.active {
+            display: block;
+        }
+        .cookie-instructions {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .cookie-instructions ol {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        .cookie-instructions li {
+            margin: 5px 0;
+        }
+        .cookie-instructions code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .file-upload-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            background: #3a3a3a;
+            border: 2px dashed #555;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .file-upload-label:hover {
+            background: #444;
+            border-color: #6c9bff;
+        }
+        .file-upload-label i {
+            margin-right: 8px;
+        }
+        .file-name {
+            font-size: 12px;
+            color: #999;
+            margin: 5px 0;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="main-container">
@@ -115,6 +196,7 @@
                         </button>
                     </form>
                     {% else %}
+                    <!-- Username/Password Login -->
                     <form method="POST" action="{{ url_for('login') }}" class="compact-form">
                         <input type="text" name="username" placeholder="Username" autocomplete="username" required>
                         <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
@@ -123,6 +205,41 @@
                             <i class="fas fa-sign-in-alt"></i> Login
                         </button>
                     </form>
+                    
+                    <!-- Cookie Import Section -->
+                    <div class="cookie-import-section">
+                        <div class="cookie-import-toggle" onclick="toggleCookieImport()">
+                            <i class="fas fa-cookie-bite"></i>
+                            <span>Or import cookies from browser</span>
+                            <i class="fas fa-chevron-down" id="cookieToggleIcon"></i>
+                        </div>
+                        <div class="cookie-import-content" id="cookieImportContent">
+                            <div class="cookie-instructions">
+                                <strong>How to export cookies:</strong>
+                                <ol>
+                                    <li>Install browser extension:<br>
+                                        <code>Get cookies.txt</code> (Chrome/Firefox)</li>
+                                    <li>Go to <a href="https://www.gog.com" target="_blank" style="color: #6c9bff;">gog.com</a> and login</li>
+                                    <li>Click the extension icon</li>
+                                    <li>Click "Export" and save as <code>cookies.txt</code></li>
+                                    <li>Upload the file below</li>
+                                </ol>
+                            </div>
+                            <form method="POST" action="{{ url_for('import_cookies') }}" enctype="multipart/form-data" class="compact-form" id="cookieForm">
+                                <div class="file-upload-wrapper">
+                                    <input type="file" name="cookies_file" id="cookiesFile" accept=".txt" required onchange="updateFileName()">
+                                    <label for="cookiesFile" class="file-upload-label">
+                                        <i class="fas fa-upload"></i>
+                                        <span>Choose cookies.txt file</span>
+                                    </label>
+                                </div>
+                                <div class="file-name" id="fileName"></div>
+                                <button type="submit" class="btn primary" style="margin-top: 10px;">
+                                    <i class="fas fa-file-import"></i> Import Cookies
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -201,6 +318,29 @@
     <script>
         let currentJobId = null;
         let selectedGameTitle = null;
+
+        // Cookie import toggle
+        function toggleCookieImport() {
+            const content = document.getElementById('cookieImportContent');
+            const icon = document.getElementById('cookieToggleIcon');
+            content.classList.toggle('active');
+            if (content.classList.contains('active')) {
+                icon.className = 'fas fa-chevron-up';
+            } else {
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+
+        // Update file name display
+        function updateFileName() {
+            const input = document.getElementById('cookiesFile');
+            const display = document.getElementById('fileName');
+            if (input.files.length > 0) {
+                display.textContent = input.files[0].name;
+            } else {
+                display.textContent = '';
+            }
+        }
 
         // Game selection
         document.querySelectorAll('.game-item').forEach(item => {
