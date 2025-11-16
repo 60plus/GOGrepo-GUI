@@ -14,7 +14,7 @@ The traditional CLI login flow can struggle with:
 ### How It Works
 
 1. **First Run Setup**: When cookies are not present, you'll see a setup screen
-2. **VNC Browser**: Chromium runs in a VNC session, accessible through noVNC in your browser
+2. **Embedded VNC Browser**: Chromium runs in a VNC session, accessible through noVNC **embedded in your browser** (no additional ports needed!)
 3. **Manual Login**: Log in to GOG.com directly in the embedded browser
    - Complete 2FA authentication
    - Solve CAPTCHA if needed
@@ -22,10 +22,14 @@ The traditional CLI login flow can struggle with:
 4. **Extract Cookies**: Click "Extract Cookies" to save your session
 5. **Automatic Flow**: Once cookies are saved, the app works normally
 
-### Ports
+### Universal Deployment
 
-- **8080**: Flask web UI (main application)
-- **6080**: noVNC web interface (for browser login)
+**Everything works through port 8080!**
+- ✅ No need to expose port 6080
+- ✅ Works with any network configuration (localhost, LAN, VPS, cloud)
+- ✅ Works through reverse proxies (nginx, Caddy, Traefik)
+- ✅ No CORS or WebSocket proxy issues
+- ✅ Flask proxy handles all noVNC traffic internally
 
 ## Screenshots 📸
 
@@ -37,6 +41,7 @@ _Coming soon: Setup screen with embedded browser_
   - Full 2FA support (authenticator apps and email codes)
   - CAPTCHA handling
   - Real browser environment for complex login flows
+  - **Universal deployment** - works through single port (8080)
 - Two-step login flow integrated with `gogrepo` (legacy CLI method still available)
 - Update manifest with OS and language filters, plus:
   - `skipknown` — Only update new games in your library.
@@ -58,6 +63,7 @@ _Coming soon: Setup screen with embedded browser_
 ## Roadmap 🗺️
 
 - ✅ **Interactive browser login with 2FA and CAPTCHA support**
+- ✅ **Universal deployment through Flask proxy**
 - Multi-select downloads:
   - Select several games at once (not just one or all).
 - Multi-account sessions:
@@ -85,12 +91,11 @@ docker build -t gogrepo-gui:test .
 
 ### 3) Run with docker run
 
-Run the container binding ports 8080 (web UI) and 6080 (noVNC) and mounting a local `./data` folder to persist cookies and manifest.
+Run the container binding **only port 8080** and mounting a local `./data` folder to persist cookies and manifest.
 
 ```bash
 docker run -d --name gogrepo-gui \
   -p 8080:8080 \
-  -p 6080:6080 \
   -v "$PWD/data:/app/data" \
   -e FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-change-me}" \
   -e GOGREPO_DATA_DIR="/app/data" \
@@ -100,11 +105,10 @@ docker run -d --name gogrepo-gui \
   gogrepo-gui:test
 ```
 
-Open:
-- **Main UI**: http://localhost:8080
-- **noVNC** (if needed directly): http://localhost:6080
+**Access:**
+- **Main UI & noVNC**: http://localhost:8080
 
-The setup screen will automatically appear on first run if no cookies are present.
+The setup screen will automatically appear on first run if no cookies are present. noVNC is embedded through Flask proxy - no additional ports needed!
 
 ### 4) Portainer Stack (Compose)
 
@@ -118,8 +122,7 @@ services:
     image: gogrepo-gui:test
     container_name: gogrepo-gui
     ports:
-      - "8080:8080"   # Flask web UI
-      - "6080:6080"   # noVNC web interface
+      - "8080:8080"   # Main UI (includes noVNC proxy)
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
@@ -135,6 +138,8 @@ services:
     # user: "${UID:-1000}:${GID:-1000}"
 ```
 
+**Note:** Port 6080 is NOT exposed externally - noVNC is accessed through Flask proxy on port 8080.
+
 ## Prebuilt Docker Images 🐳
 
 _Note: Prebuilt images with interactive browser feature will be available soon._
@@ -146,7 +151,7 @@ For now, use the local build instructions above with the `test` branch.
 ### First Time Setup
 
 1. Start the container (see above)
-2. Navigate to http://localhost:8080
+2. Navigate to http://localhost:8080 (or your server IP:8080)
 3. You'll see the **Setup Screen** with an embedded browser
 4. Click "Start Browser" to launch Chromium in the VNC window
 5. Log in to GOG.com in the embedded browser
@@ -172,7 +177,7 @@ After initial setup, the app works normally:
 
 ### Using the Web UI (Recommended)
 
-1. Open http://localhost:8080
+1. Open http://localhost:8080 (or http://YOUR_SERVER_IP:8080)
 2. Complete setup if needed (first run)
 3. Click "Update Manifest" with desired OS/language filters
 4. Browse your library and download games
@@ -226,9 +231,10 @@ After initial setup, the app works normally:
 ### Architecture
 
 - **Flask**: Web framework for UI and API
+- **Flask Proxy**: Proxies noVNC through main port (8080) - no additional ports needed
 - **Xvfb**: Virtual display server (`:99`)
-- **x11vnc**: VNC server for remote display access
-- **noVNC**: Web-based VNC client (websockify proxy)
+- **x11vnc**: VNC server for remote display access (internal only)
+- **noVNC**: Web-based VNC client (accessed through Flask proxy)
 - **Chromium**: Browser for interactive login
 - **Python**: Backend logic and cookie management
 
@@ -236,12 +242,34 @@ After initial setup, the app works normally:
 
 Cookies are extracted from Chromium's SQLite database and converted to Python's `http.cookiejar.LWPCookieJar` format, which is compatible with gogrepo.py.
 
+### Network Architecture
+
+```
+Client Browser (port 8080)
+    ↓
+Flask Application
+    ├─→ Main UI routes
+    ├─→ API endpoints
+    └─→ /vnc/* proxy ──→ noVNC (localhost:6080)
+                              ↓
+                         x11vnc (localhost:5900)
+                              ↓
+                         Xvfb + Chromium
+```
+
+**Key benefits:**
+- Single port exposure (8080)
+- No CORS issues
+- Works through reverse proxies
+- Universal deployment (localhost, LAN, cloud)
+
 ### Security Notes
 
 - Cookies are stored in `/app/data/gog-cookies.dat`
 - Browser profiles are temporary and cleared between sessions
 - VNC server runs without password (localhost only in container)
-- Use proper network security when exposing ports
+- noVNC is only accessible through Flask (not directly exposed)
+- Use proper network security when exposing port 8080 to the internet
 
 ## Requirements
 
@@ -264,22 +292,56 @@ Cookies are extracted from Chromium's SQLite database and converted to Python's 
 - Ensure Xvfb is running (should auto-start)
 - Verify VNC port 5900 is accessible internally
 
-### noVNC shows black screen
+### noVNC shows black screen or doesn't load
 
-- Wait a few seconds for browser to load
-- Try clicking "Start Browser" again
-- Check if Chromium process is running in container
+- Wait a few seconds for browser to start
+- Try the "Open in New Tab" button
+- Check Flask logs for proxy errors
+- Verify `/vnc/vnc.html` endpoint is accessible
 
 ### Cookie extraction fails
 
 - Make sure you're logged in to GOG.com
 - Verify you can see your account name in the browser
 - Try refreshing the GOG page before extracting
+- Check that Chromium profile directory is writable
 
-### Port conflicts
+### Works locally but not remotely
 
-- Change ports in `docker-compose.yml` if 8080 or 6080 are in use
-- Update `NOVNC_PORT` environment variable accordingly
+- Ensure port 8080 is accessible from your network
+- Check firewall rules
+- If using reverse proxy, ensure WebSocket support is enabled
+- Try accessing with IP address instead of hostname
+
+## Reverse Proxy Configuration
+
+### Nginx Example
+
+```nginx
+server {
+    listen 80;
+    server_name gogrepo.example.com;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Caddy Example
+
+```caddy
+gogrepo.example.com {
+    reverse_proxy localhost:8080
+}
+```
 
 ## Contributing
 
