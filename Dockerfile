@@ -1,4 +1,4 @@
-# Dockerfile
+# Dockerfile - robust APT install with retry
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -10,45 +10,39 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies for VNC, noVNC, Chromium and GUI backend
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    wget \
-    git \
-    # VNC server
-    x11vnc \
-    xvfb \
-    # Window manager
-    fluxbox \
-    # Chromium browser
-    chromium \
-    chromium-driver \
-    # noVNC dependencies
-    net-tools \
-    novnc \
-    # Cookie extraction
-    sqlite3 \
-    && rm -rf /var/lib/apt/lists/*
+# --- Robust apt-get install with 3 automatic retries ---
+RUN set -e; \
+    for i in 1 2 3; do \
+      apt-get update && \
+      apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        wget \
+        git \
+        x11vnc \
+        xvfb \
+        fluxbox \
+        chromium \
+        chromium-driver \
+        net-tools \
+        novnc \
+        sqlite3 \
+        && rm -rf /var/lib/apt/lists/* && break || (echo "APT failed on attempt $i" && apt-get clean && rm -rf /var/lib/apt/lists/* && sleep 5); \
+    done
 
-# Setup noVNC
 RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-# Python dependencies
 COPY requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
 
-# Application files
 COPY app.py /app/app.py
 COPY vnc_browser.py /app/vnc_browser.py
 COPY templates/ /app/templates/
 COPY static/ /app/static/
 COPY gogrepo.py /app/gogrepo.py
 
-# Create necessary directories
 RUN mkdir -p /app/data /app/vnc_profiles
 
-# Startup script
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
