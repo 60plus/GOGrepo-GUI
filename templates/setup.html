@@ -133,6 +133,11 @@
             color: white;
         }
 
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
         .vnc-frame-container {
             width: 100%;
             height: 600px;
@@ -232,6 +237,15 @@
             color: #0c5460;
         }
 
+        .connection-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 768px) {
             .setup-header h1 {
                 font-size: 1.5rem;
@@ -253,6 +267,11 @@
         <div class="setup-content">
             <div id="messageContainer"></div>
 
+            <div class="connection-info">
+                <strong>⚠️ Connection Info:</strong> noVNC port: <strong>{{ status.novnc_port }}</strong><br>
+                If you see a black screen, make sure port {{ status.novnc_port }} is accessible or use the "Open in New Tab" button.
+            </div>
+
             <div class="info-box">
                 <h3>📖 How to Use:</h3>
                 <ol>
@@ -273,6 +292,9 @@
                     </button>
                     <button class="btn btn-success" id="extractCookiesBtn" onclick="extractCookies()" disabled>
                         🍪 Extract Cookies
+                    </button>
+                    <button class="btn btn-info" id="openVncBtn" onclick="openVncNewTab()" style="display: none;">
+                        🔗 Open in New Tab
                     </button>
                     <span class="status-indicator waiting" id="cookiesStatus">
                         {% if status.cookies_exist %}Cookies Present{% else %}No Cookies{% endif %}
@@ -298,7 +320,13 @@
 
     <script>
         const NOVNC_PORT = '{{ status.novnc_port }}';
-        const NOVNC_URL = `http://${window.location.hostname}:${NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale`;
+        // Try multiple URL patterns for noVNC connection
+        const NOVNC_URLS = [
+            `http://${window.location.hostname}:${NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale`,
+            `/vnc/vnc.html?autoconnect=true&resize=scale`,  // If proxied
+            `http://${window.location.hostname}:${NOVNC_PORT}/`  // Fallback
+        ];
+        let currentUrlIndex = 0;
         
         let browserRunning = {{ 'true' if status.browser_running else 'false' }};
         let statusCheckInterval = null;
@@ -319,6 +347,7 @@
             const startBtn = document.getElementById('startBrowserBtn');
             const stopBtn = document.getElementById('stopBrowserBtn');
             const extractBtn = document.getElementById('extractCookiesBtn');
+            const openVncBtn = document.getElementById('openVncBtn');
             const vncFrame = document.getElementById('vncFrame');
             const vncOverlay = document.getElementById('vncOverlay');
 
@@ -326,15 +355,49 @@
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
                 extractBtn.disabled = false;
+                openVncBtn.style.display = 'inline-flex';
                 vncFrame.style.display = 'block';
                 vncOverlay.style.display = 'none';
             } else {
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
                 extractBtn.disabled = true;
+                openVncBtn.style.display = 'none';
                 vncFrame.style.display = 'none';
                 vncOverlay.style.display = 'flex';
             }
+        }
+
+        function openVncNewTab() {
+            const url = NOVNC_URLS[0];
+            window.open(url, '_blank', 'width=1280,height=900');
+        }
+
+        function tryLoadVnc(iframe, urls, index = 0) {
+            if (index >= urls.length) {
+                showMessage('Could not connect to noVNC. Try "Open in New Tab" button.', 'error');
+                return;
+            }
+
+            const url = urls[index];
+            console.log(`Trying noVNC URL: ${url}`);
+            
+            iframe.src = url;
+            
+            // If iframe fails to load after 5 seconds, try next URL
+            setTimeout(() => {
+                try {
+                    // Check if iframe loaded successfully
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (!iframeDoc || iframeDoc.readyState !== 'complete') {
+                        console.log(`Failed to load ${url}, trying next...`);
+                        tryLoadVnc(iframe, urls, index + 1);
+                    }
+                } catch (e) {
+                    // Cross-origin error means it might be loading
+                    console.log('Cross-origin restriction (VNC might be loading)');
+                }
+            }, 5000);
         }
 
         async function startBrowser() {
@@ -353,8 +416,13 @@
 
                 if (result.success) {
                     browserRunning = true;
-                    document.getElementById('vncFrame').src = NOVNC_URL;
-                    showMessage('Browser started successfully! Log in to GOG.com', 'success');
+                    
+                    // Wait a bit for VNC server to be ready
+                    setTimeout(() => {
+                        tryLoadVnc(document.getElementById('vncFrame'), NOVNC_URLS);
+                    }, 2000);
+                    
+                    showMessage('Browser started! Connecting to VNC...', 'success');
                     updateUI();
                     startStatusCheck();
                 } else {
@@ -483,6 +551,9 @@
             updateUI();
             checkStatus();
             startStatusCheck();
+            
+            // Show help message
+            console.log('noVNC URLs:', NOVNC_URLS);
         });
 
         // Cleanup on page unload
