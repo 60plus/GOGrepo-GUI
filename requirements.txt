@@ -4,3 +4,4 @@ pexpect
 beautifulsoup4
 html5lib
 lxml
+selenium
