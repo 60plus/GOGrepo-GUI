@@ -1,14 +1,20 @@
+version: "3.9"
+
 services:
   gogrepo-gui:
-    image: gogrepo-gui:latest
-    container_name: GOGrepo-gui
+    image: gogrepo-gui:test
+    container_name: gogrepo-gui
     ports:
-      - "8080:8080"
+      - "8080:8080"   # Flask web UI
+      - "6080:6080"   # noVNC web interface
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
       - GOGREPO_DOWNLOAD_DIR=/app/data
       - PYTHON_BIN=python3
+      - DISPLAY=:99
+      - VNC_PORT=5900
+      - NOVNC_PORT=6080
     volumes:
       - ./data:/app/data
     restart: unless-stopped
