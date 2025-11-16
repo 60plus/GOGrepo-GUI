@@ -1,31 +1,48 @@
 # GOGrepo GUI ✨
 
-<p align="center">
-  <img src="static/logo.png" alt="GOGrepo GUI Logo" width="420">
-</p>
+A lightweight Flask-based web UI around gogrepo to log in, update your manifest, and download your GOG library with real-time logs, progress, and inline game info. Now with **interactive browser login** using noVNC and Chromium for seamless 2FA and CAPTCHA handling! 🚀
 
-A lightweight Flask-based web UI around gogrepo to log in, update your manifest, and download your GOG library with real-time logs, progress, and inline game info. Designed to be compact, modern, and easy to deploy. 🚀
+## 🆕 New Feature: Interactive Browser Login
 
----
+### Why Interactive Browser?
+
+The traditional CLI login flow can struggle with:
+- **2FA authentication** (app-based or email codes)
+- **CAPTCHA challenges**
+- **Complex login flows**
+
+### How It Works
+
+1. **First Run Setup**: When cookies are not present, you'll see a setup screen
+2. **VNC Browser**: Chromium runs in a VNC session, accessible through noVNC in your browser
+3. **Manual Login**: Log in to GOG.com directly in the embedded browser
+   - Complete 2FA authentication
+   - Solve CAPTCHA if needed
+   - Stay logged in as needed
+4. **Extract Cookies**: Click "Extract Cookies" to save your session
+5. **Automatic Flow**: Once cookies are saved, the app works normally
+
+### Ports
+
+- **8080**: Flask web UI (main application)
+- **6080**: noVNC web interface (for browser login)
 
 ## Screenshots 📸
 
-<p align="center">
-  <img src="static/sc1.png" alt="Home" width="280" style="margin:6px;">
-  <img src="static/sc2.png" alt="Download" width="280" style="margin:6px;">
-  <img src="static/sc3.png" alt="Details" width="280" style="margin:6px;">
-</p>
-
----
+_Coming soon: Setup screen with embedded browser_
 
 ## Features ✅
 
-- Two-step login flow integrated with `gogrepo`.  
+- **Interactive browser login** with noVNC-embedded Chromium
+  - Full 2FA support (authenticator apps and email codes)
+  - CAPTCHA handling
+  - Real browser environment for complex login flows
+- Two-step login flow integrated with `gogrepo` (legacy CLI method still available)
 - Update manifest with OS and language filters, plus:
-  - `skipknown` — Only update new games in your library.  
-  - `updateonly` — Only update games with the updated tag in your library.  
+  - `skipknown` — Only update new games in your library.
+  - `updateonly` — Only update games with the updated tag in your library.
 - Download options:
-  - Download all titles, or a single selected game from your library.  
+  - Download all titles, or a single selected game from your library.
   - Real-time output panel with progress estimation and a Cancel button.
 - Downloaded games indicator
   - Automatic detection based on folder existence in download directory.
@@ -33,265 +50,256 @@ A lightweight Flask-based web UI around gogrepo to log in, update your manifest,
   - Visual markers (✅ icon and green accent) for already downloaded games in the library.
 - Inline game details:
   - Description and cover fetched from GOG API with manifest fallback for robustness.
-- Disk cache for descriptions and covers: 
+- Disk cache for descriptions and covers:
   - Stores JSON in Cache/desc and images in Cache/cover to reduce external API calls; cached covers are served locally for faster details panel.
 - Helpful hover tooltips on toggles:
-  - `skipknown`, `updateonly`, `skipextras`, `skipgames` show what each option does.  
+  - `skipknown`, `updateonly`, `skipextras`, `skipgames` show what each option does.
 
 ## Roadmap 🗺️
 
-- 2FA improvements:
-  - Current status: works with authenticator app codes and accounts without 2FA.
-  - Goal: add support for email-based security codes.
+- ✅ **Interactive browser login with 2FA and CAPTCHA support**
 - Multi-select downloads:
   - Select several games at once (not just one or all).
 - Multi-account sessions:
   - Log into multiple GOG accounts and download without duplicates across libraries.
 
-
----
-
 ## To build the Docker image locally 🐳
 
 ### 1) Clone the repository
-Make sure you have the project files locally (the build context must include the `Dockerfile`).  
-```
+
+Make sure you have the project files locally (the build context must include the `Dockerfile`).
+
+```bash
 git clone https://github.com/60plus/GOGrepo-GUI.git
 cd GOGrepo-GUI
+git checkout test  # Use test branch for interactive browser feature
 ```
 
 ### 2) Build a local image
-Build directly from the provided Dockerfile in the repo root.  
-```
-docker build -t gogrepo-gui:latest .
+
+Build directly from the provided Dockerfile in the repo root.
+
+```bash
+docker build -t gogrepo-gui:test .
 ```
 
 ### 3) Run with docker run
-Run the container binding port 8080 and mounting a local `./data` folder to persist cookies and manifest.  
-```
+
+Run the container binding ports 8080 (web UI) and 6080 (noVNC) and mounting a local `./data` folder to persist cookies and manifest.
+
+```bash
 docker run -d --name gogrepo-gui \
   -p 8080:8080 \
+  -p 6080:6080 \
   -v "$PWD/data:/app/data" \
   -e FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-change-me}" \
   -e GOGREPO_DATA_DIR="/app/data" \
   -e GOGREPO_DOWNLOAD_DIR="/app/data" \
   -e PYTHON_BIN="python3" \
   --restart unless-stopped \
-  gogrepo-gui:latest
-
+  gogrepo-gui:test
 ```
-Open http://localhost:8080 and use the UI; the server binds to 0.0.0.0:8080 and persists data under `/app/data`.
 
+Open:
+- **Main UI**: http://localhost:8080
+- **noVNC** (if needed directly): http://localhost:6080
+
+The setup screen will automatically appear on first run if no cookies are present.
 
 ### 4) Portainer Stack (Compose)
-Use this minimal Compose spec as a Portainer “Stack” for persistent deployment.  
-```
+
+Use this minimal Compose spec as a Portainer "Stack" for persistent deployment.
+
+```yaml
 version: "3.9"
 
 services:
   gogrepo-gui:
-    image: gogrepo-gui:latest
+    image: gogrepo-gui:test
     container_name: gogrepo-gui
     ports:
-      - "8080:8080"
+      - "8080:8080"   # Flask web UI
+      - "6080:6080"   # noVNC web interface
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
       - GOGREPO_DOWNLOAD_DIR=/app/data
       - PYTHON_BIN=python3
+      - DISPLAY=:99
+      - VNC_PORT=5900
+      - NOVNC_PORT=6080
     volumes:
       - ./data:/app/data
     restart: unless-stopped
     # Optional: run as your host user
     # user: "${UID:-1000}:${GID:-1000}"
-
 ```
 
 ## Prebuilt Docker Images 🐳
 
-### Prebuilt Docker images are available at:
-```
-60plus/gogrepo-gui:latest
-```
+_Note: Prebuilt images with interactive browser feature will be available soon._
 
-You can run the container directly with Docker:
-```
-docker run -d --name gogrepo-gui \
-  -p 8080:8080 \
-  -v "$PWD/data:/app/data" \
-  -e FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-change-me}" \
-  -e GOGREPO_DATA_DIR="/app/data" \
-  -e GOGREPO_DOWNLOAD_DIR="/app/data" \
-  -e PYTHON_BIN="python3" \
-  --restart unless-stopped \
-  60plus/gogrepo-gui:latest
+For now, use the local build instructions above with the `test` branch.
 
-```
-Alternatively, you can deploy it easily using Portainer Stack.
-Here’s an example stack definition:
-```
-version: "3.9"
+## Usage 📖
 
-services:
-  gogrepo-gui:
-    image: 60plus/gogrepo-gui:latest
-    container_name: gogrepo-gui
-    ports:
-      - "8080:8080"
-    environment:
-      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
-      - GOGREPO_DATA_DIR=/app/data
-      - GOGREPO_DOWNLOAD_DIR=/app/data
-      - PYTHON_BIN=python3
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-    # Optional: run as your host user
-    # user: "${UID:-1000}:${GID:-1000}"
+### First Time Setup
 
-```
+1. Start the container (see above)
+2. Navigate to http://localhost:8080
+3. You'll see the **Setup Screen** with an embedded browser
+4. Click "Start Browser" to launch Chromium in the VNC window
+5. Log in to GOG.com in the embedded browser
+   - Complete any 2FA challenges
+   - Solve CAPTCHA if presented
+6. Click "Extract Cookies" to save your session
+7. You'll be redirected to the main application
 
+### Normal Usage
 
+After initial setup, the app works normally:
 
+1. **Update Manifest**: Fetch your game library from GOG
+2. **Browse Games**: View your games with covers and details
+3. **Download**: Download individual games or your entire library
+4. **Monitor Progress**: Real-time logs and progress tracking
 
-> [!TIP]
-> gogrepo.py in the repository still works on its own and can be used standalone if you prefer.
+### gogrepo.py Standalone
 
+> **Tip**: gogrepo.py in the repository still works on its own and can be used standalone if you prefer.
 
+## Quick Start -- Typical Use Case
 
+### Using the Web UI (Recommended)
 
+1. Open http://localhost:8080
+2. Complete setup if needed (first run)
+3. Click "Update Manifest" with desired OS/language filters
+4. Browse your library and download games
 
+### Using gogrepo.py CLI
 
+- **Login** to GOG and save your login cookie for later commands:
+  ```bash
+  gogrepo.py login
+  ```
 
+- **Update** manifest - fetch all game and bonus information:
+  ```bash
+  gogrepo.py update -os windows linux mac -lang en de fr
+  ```
 
+- **Download** games and bonus files:
+  ```bash
+  gogrepo.py download
+  ```
 
+- **Verify** integrity of all downloaded files:
+  ```bash
+  gogrepo.py verify
+  ```
 
+## Advanced Usage -- Common Tasks
 
+- Add new games from your library to the manifest:
+  ```bash
+  gogrepo.py update -os windows -lang en de -skipknown
+  ```
 
+- Update games with the updated tag:
+  ```bash
+  gogrepo.py update -os windows -lang en de -updateonly
+  ```
 
-<details>
-<summary>gogrepo.py INFO</summary>
-gogrepo
--------
+- Update a single game:
+  ```bash
+  gogrepo.py update -os windows -lang en de -id trine_2_complete_story
+  ```
 
+- Download a single game:
+  ```bash
+  gogrepo.py download -id trine_2_complete_story
+  ```
 
-Quick Start -- Typical Use Case
-----------------
+## Technical Details
 
-* Login to GOG and save your login cookie for later commands. Your login/pass can be specified or be prompted. You generally only need to do this once to create a valid gog-cookies.dat
+### Architecture
 
-  ``gogrepo.py login``
+- **Flask**: Web framework for UI and API
+- **Xvfb**: Virtual display server (`:99`)
+- **x11vnc**: VNC server for remote display access
+- **noVNC**: Web-based VNC client (websockify proxy)
+- **Chromium**: Browser for interactive login
+- **Python**: Backend logic and cookie management
 
-* Fetch all game and bonus information from GOG for items that you own and save into a local manifest file. Run this whenever you want to discover newly added games or game updates.
+### Cookie Extraction
 
-  ``gogrepo.py update -os windows linux mac -lang en de fr``
+Cookies are extracted from Chromium's SQLite database and converted to Python's `http.cookiejar.LWPCookieJar` format, which is compatible with gogrepo.py.
 
-* Download the games and bonus files for the OS and languages you want for all items known from the saved manifest file.
+### Security Notes
 
-  ``gogrepo.py download``
+- Cookies are stored in `/app/data/gog-cookies.dat`
+- Browser profiles are temporary and cleared between sessions
+- VNC server runs without password (localhost only in container)
+- Use proper network security when exposing ports
 
-* Verify and report integrity of all downloaded files. Does MD5, zip integrity, and expected filesize verification. This makes sure your game files can actually be read back and are healthy.
+## Requirements
 
-  ``gogrepo.py verify``
+### Docker (Recommended)
 
-Advanced Usage -- Common Tasks
-----------------
+- Docker 20.10+
+- Docker Compose 1.29+ (optional)
 
-* Add new games from your library to the manifest.
+### Manual Installation
 
-  ``gogrepo.py update -os windows -lang en de -skipknown``
+- Python 3.11+
+- System packages: `chromium`, `x11vnc`, `xvfb`, `fluxbox`, `novnc`, `sqlite3`
+- Python packages: see `requirements.txt`
 
-* Update games with the updated tag in your libary.
+## Troubleshooting
 
-  ``gogrepo.py update -os windows -lang en de -updateonly``
+### Browser doesn't start
 
-* Update a single game in your manifest.
+- Check container logs: `docker logs gogrepo-gui`
+- Ensure Xvfb is running (should auto-start)
+- Verify VNC port 5900 is accessible internally
 
-  ``gogrepo.py update -os windows -lang en de -id trine_2_complete_story``
+### noVNC shows black screen
 
-* Download a single game in your manifest.
+- Wait a few seconds for browser to load
+- Try clicking "Start Browser" again
+- Check if Chromium process is running in container
 
-  ``gogrepo.py download -id trine_2_complete_story``
+### Cookie extraction fails
 
-Commands
---------
+- Make sure you're logged in to GOG.com
+- Verify you can see your account name in the browser
+- Try refreshing the GOG page before extracting
 
-``gogrepo.py login`` Authenticate with GOG and save the cookie locally in gog-cookies.dat file. This is needed to do
-update or download command. Run this once first before doing update and download.
+### Port conflicts
 
-    login [-h] [username] [password]
-    -h, --help  show this help message and exit
-    username    GOG username/email
-    password    GOG password
+- Change ports in `docker-compose.yml` if 8080 or 6080 are in use
+- Update `NOVNC_PORT` environment variable accordingly
 
---
+## Contributing
 
-``gogrepo.py update`` Fetch game data and information from GOG.com for the specified operating systems and languages. This collects file game titles, download links, serial numbers, MD5/filesize data and saves the data locally in a manifest file. Manifest is saved in a gog-manifest.dat file
+Contributions are welcome! Please:
 
-    update [-h] [-os [OS [OS ...]]] [-lang [LANG [LANG ...]]] [-skipknown | -updateonly | -id <title>]
-    -h, --help            show this help message and exit
-    -os [OS [OS ...]]     operating system(s) (ex. windows linux mac)
-    -lang [LANG [LANG ...]]  game language(s) (ex. en fr de)
-    -skipknown            only update new games in your library
-    -updateonly           only update games with the updated tag in your library
-    -id <title>           specify the game to update by 'title' from the manifest
-                          <title> can be found in the !info.txt of the game directory
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
---
+## License
 
-``gogrepo.py download`` Use the saved manifest file from an update command, and download all known game items and bonus files.
+See repository license file.
 
-    download [-h] [-dryrun] [-skipextras] [-skipextras] [-skipgames] [-wait WAIT] [-id <title>] [savedir]
-    -h, --help   show this help message and exit
-    -dryrun      display, but skip downloading of any files
-    -skipextras  skip downloading of any GOG extra files
-    -skipgames   skip downloading of any GOG game files
-    -wait WAIT   wait this long in hours before starting
-    -id <title>  specify the game to download by 'title' from the manifest
-                 <title> can be found in the !info.txt of the game directory
-    savedir      directory to save downloads to
+## Credits
 
---
+- Based on [gogrepo](https://github.com/Kalanyr/gogrepo) by Kalanyr
+- noVNC by [novnc/noVNC](https://github.com/novnc/noVNC)
+- Flask web framework
 
-``gogrepo.py verify`` Check all your game files against the save manifest data, and verify MD5, zip integrity, and
-expected file size. Any missing or corrupt files will be reported.
+---
 
-    verify [-h] [-skipmd5] [-skipsize] [-skipzip] [-delete] [gamedir]
-    gamedir     directory containing games to verify
-    -h, --help  show this help message and exit
-    -skipmd5    do not perform MD5 check
-    -skipsize   do not perform size check
-    -skipzip    do not perform zip integrity check
-    -delete     delete any files which fail integrity test
-
---
-
-``gogrepo.py import`` Search an already existing GOG collection for game item/files, and import them to your
-new GOG folder with clean game directory names and file names as GOG has them named on their servers.
-
-    import [-h] src_dir dest_dir
-    src_dir     source directory to import games from
-    dest_dir    directory to copy and name imported files to
-    -h, --help  show this help message and exit
-
---
-
-``gogrepo.py backup`` Make copies of all known files in manifest file from a source directory to a backup destination directory. Useful for cleaning out older files from your GOG collection.
-
-    backup [-h] src_dir dest_dir
-    src_dir     source directory containing gog items
-    dest_dir    destination directory to backup files to
-    -h, --help  show this help message and exit
-
-
-Requirements
-------------
-* Python 2.7 (Python 3 support coming soon)
-* html5lib 0.99999 (https://github.com/html5lib/html5lib-python)
-* html2text 2015.6.21 (https://pypi.python.org/pypi/html2text) (optional, used for prettying up gog game changelog html)
-
-I recommend you use `pip` to install the above python modules. 
-
-  ``pip install html5lib html2text``
-
-</details>
+**Enjoy your GOG library management with seamless browser-based authentication! 🎮✨**
