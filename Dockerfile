@@ -3,29 +3,55 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    GOGREPO_DATA_DIR=/app/data
+    GOGREPO_DATA_DIR=/app/data \
+    DISPLAY=:99 \
+    VNC_PORT=5900 \
+    NOVNC_PORT=6080
 
 WORKDIR /app
 
-# Wymagane biblioteki dla GUI-backendu i parsowania
+# Install system dependencies for VNC, noVNC, Chromium and GUI backend
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl && \
-    rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    # VNC server
+    x11vnc \
+    xvfb \
+    # Window manager
+    fluxbox \
+    # Chromium browser
+    chromium \
+    chromium-driver \
+    # noVNC dependencies
+    net-tools \
+    novnc \
+    # Cookie extraction
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Zależności Pythona
+# Setup noVNC
+RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+
+# Python dependencies
 COPY requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
 
-# Aplikacja
+# Application files
 COPY app.py /app/app.py
+COPY vnc_browser.py /app/vnc_browser.py
 COPY templates/ /app/templates/
 COPY static/ /app/static/
-
-# Skrypt gogrepo.py (umieść w kontekście buildu lub podmontuj volume)
 COPY gogrepo.py /app/gogrepo.py
 
-RUN mkdir -p /app/data
+# Create necessary directories
+RUN mkdir -p /app/data /app/vnc_profiles
 
-EXPOSE 8080
+# Startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-CMD ["python", "-m", "flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "8080"]
+EXPOSE 8080 6080
+
+CMD ["/app/start.sh"]
