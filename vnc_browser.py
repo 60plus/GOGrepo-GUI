@@ -36,37 +36,33 @@ class VNCBrowserManager:
                 return False
             return self.browser_process.poll() is None
     
-    def start_browser(self, url: str = "https://www.gog.com/") -> bool:
-        """Start Chromium browser in VNC session"""
+    def _start_browser_thread(self, url: str):
+        """Internal method to start browser in background thread"""
         try:
+            # Create fresh profile directory
+            if self.current_profile.exists():
+                shutil.rmtree(self.current_profile)
+            self.current_profile.mkdir(parents=True, exist_ok=True)
+            
+            # Chromium arguments for VNC session
+            args = [
+                "chromium",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1200,900",
+                f"--user-data-dir={self.current_profile}",
+                "--disable-features=TranslateUI",
+                "--disable-infobars",
+                "--no-first-run",
+                "--no-default-browser-check",
+                url
+            ]
+            
+            env = os.environ.copy()
+            env["DISPLAY"] = ":99"
+            
             with self.lock:
-                if self.is_browser_running():
-                    logger.info("Browser already running")
-                    return True
-                
-                # Create fresh profile directory
-                if self.current_profile.exists():
-                    shutil.rmtree(self.current_profile)
-                self.current_profile.mkdir(parents=True, exist_ok=True)
-                
-                # Chromium arguments for VNC session
-                args = [
-                    "chromium",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--window-size=1200,900",
-                    f"--user-data-dir={self.current_profile}",
-                    "--disable-features=TranslateUI",
-                    "--disable-infobars",
-                    "--no-first-run",
-                    "--no-default-browser-check",
-                    url
-                ]
-                
-                env = os.environ.copy()
-                env["DISPLAY"] = ":99"
-                
                 self.browser_process = subprocess.Popen(
                     args,
                     env=env,
@@ -75,8 +71,28 @@ class VNCBrowserManager:
                 )
                 
                 logger.info(f"Browser started with PID {self.browser_process.pid}")
-                time.sleep(2)  # Give browser time to start
-                return True
+                
+        except Exception as e:
+            logger.exception(f"Failed to start browser: {e}")
+            with self.lock:
+                self.browser_process = None
+    
+    def start_browser(self, url: str = "https://www.gog.com/") -> bool:
+        """Start Chromium browser in VNC session (non-blocking)"""
+        try:
+            with self.lock:
+                if self.is_browser_running():
+                    logger.info("Browser already running")
+                    return True
+            
+            # Start browser in background thread to avoid blocking Flask
+            thread = threading.Thread(target=self._start_browser_thread, args=(url,), daemon=True)
+            thread.start()
+            
+            # Give thread a moment to start
+            time.sleep(0.5)
+            
+            return True
                 
         except Exception as e:
             logger.exception(f"Failed to start browser: {e}")
