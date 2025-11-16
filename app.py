@@ -35,7 +35,6 @@ def save_cookies():
     try:
         import shutil
         import sqlite3
-        import pickle
         import http.cookiejar
         from pathlib import Path
         
@@ -111,10 +110,9 @@ def save_cookies():
                 )
                 cookie_jar.set_cookie(cookie)
             
-            # Save as pickle file (gogrepo.py format)
+            # Save as text file - fix pickling error
             cookies_file = Path(app.config['GOGREPO_DATA_DIR']) / 'gog-cookies.dat'
-            with open(cookies_file, 'wb') as f:
-                pickle.dump(cookie_jar, f)
+            cookie_jar.save(str(cookies_file), ignore_discard=True, ignore_expires=True)
             
             return jsonify({
                 'success': True,
@@ -138,18 +136,11 @@ def vnc_proxy(path=''):
     """Proxy noVNC static files - redirect root requests to actual noVNC on port 6080"""
     import os
     from flask import send_from_directory
-    
-    # If no path specified, redirect to noVNC on port 6080
     if not path:
         return redirect('http://{}:6080/vnc.html'.format(request.host.split(':')[0]))
-    
-    # For vnc.html and other files, serve from noVNC directory
     novnc_path = '/usr/share/novnc'
-    
-    # Remove query parameters for file path
     file_path = path.split('?')[0]
     full_path = os.path.join(novnc_path, file_path)
-    
     if os.path.exists(full_path):
         directory = os.path.dirname(full_path)
         filename = os.path.basename(full_path)
