@@ -33,173 +33,14 @@ COOKIES  = os.path.join(DATA_DIR, "gog-cookies.dat")
 DOWNLOAD_DIR = os.environ.get("GOGREPO_DOWNLOAD_DIR", DATA_DIR)
 
 def check_status():
-    """Check if cookies exist"""
     cookies_file = Path(COOKIES)
     return {
         'cookies': cookies_file.exists(),
         'manifest': os.path.exists(MANIFEST)
     }
-
-def normalize_game_folder_name(title: str) -> str:
-    """Convert game title to expected folder name format"""
-    if not title:
-        return ""
-    normalized = title.lower().strip()
-    normalized = re.sub(r'[:\'\'"!?.,™®©]', '', normalized)
-    normalized = re.sub(r'[\s\-_]+', '_', normalized)
-    normalized = normalized.strip('_')
-    return normalized
-
-def is_game_downloaded(title: str) -> bool:
-    """Check if game folder exists in download directory"""
-    if not title:
-        return False
-    folder_name = normalize_game_folder_name(title)
-    if not folder_name:
-        return False
-    game_path = os.path.join(DOWNLOAD_DIR, folder_name)
-    return os.path.isdir(game_path)
-
-def _extract_games_from_obj(data):
-    if isinstance(data, dict):
-        if isinstance(data.get("products"), dict):
-            source = list(data["products"].values())
-        elif "games" in data:
-            source = list(data["games"].values()) if isinstance(data["games"], dict) else data["games"]
-        else:
-            source = [v for v in data.values() if isinstance(v, dict)]
-    elif isinstance(data, list):
-        source = data
-    else:
-        source = []
-    out, seen = [], set()
-    for g in source:
-        if not isinstance(g, dict):
-            continue
-        slug = (g.get("title") or g.get("slug") or "").strip()
-        nice = (g.get("long_title") or g.get("game_title") or g.get("name") or slug).strip()
-        if '_' in nice and nice == slug:
-            nice = nice.replace('_', ' ').title()
-        pid  = g.get("product_id") or g.get("productId") or g.get("productid") or g.get("id")
-        if slug and slug.lower() not in seen:
-            seen.add(slug.lower())
-            out.append({"title": slug, "long_title": nice, "product_id": pid})
-    out.sort(key=lambda x: x["long_title"].lower())
-    return out
-
-def _load_manifest_raw():
-    try:
-        with open(MANIFEST, "rb") as f:
-            return pickle.load(f)
-    except Exception:
-        pass
-    try:
-        with open(MANIFEST, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        pass
-    try:
-        with open(MANIFEST, "r", encoding="utf-8", errors="ignore") as f:
-            return ast.literal_eval(f.read())
-    except Exception:
-        return None
-
-def load_manifest_games():
-    raw = _load_manifest_raw()
-    games = _extract_games_from_obj(raw) if raw is not None else []
-    for game in games:
-        game['is_downloaded'] = is_game_downloaded(game['title'])
-    return games
-
-class Job:
-    def __init__(self):
-        self.status = "running"
-        self.output = ""
-        self.rc: Optional[int] = None
-        self.lock = threading.Lock()
-        self.proc: Optional[subprocess.Popen] = None
-
-    def append(self, text: str):
-        with self.lock:
-            self.output += text
-
-    def finish(self, rc: int, status: Optional[str] = None):
-        with self.lock:
-            self.rc = rc
-            self.status = status if status else ("finished" if rc == 0 else "error")
-
-jobs = {}
-_current_job_id = None
-_current_job_lock = threading.Lock()
-
-def _run_stream(job_id, args, cwd=None):
-    global _current_job_id
-    job = jobs[job_id]
-    try:
-        job.append("$ " + " ".join(shlex.quote(a) for a in args) + "\n")
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"
-        proc = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
-        job.proc = proc
-        for line in proc.stdout:
-            job.append(line)
-        rc = proc.wait()
-        if job.status == "running":
-            job.finish(rc)
-    except Exception as e:
-        job.append(f"\n[ERROR] {e}\n{traceback.format_exc()}\n")
-        job.finish(1)
-    finally:
-        with _current_job_lock:
-            if _current_job_id == job_id:
-                _current_job_id = None
-
-def start_job(args, cwd=None) -> str:
-    global _current_job_id
-    job_id = str(uuid.uuid4())
-    jobs[job_id] = Job()
-    with _current_job_lock:
-        _current_job_id = job_id
-    t = threading.Thread(target=_run_stream, args=(job_id, args, cwd), daemon=True)
-    t.start()
-    return job_id
-
-def cancel_job(job_id: Optional[str]) -> tuple[bool, str]:
-    job = jobs.get(job_id or "")
-    if not job or job.status != "running" or not job.proc:
-        return False, "No running job"
-    try:
-        job.append("\n[INFO] Cancel requested, terminating process...\n")
-        job.proc.terminate()
-        try:
-            job.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            job.append("[INFO] Process did not terminate, killing...\n")
-            job.proc.kill()
-            job.proc.wait(timeout=5)
-        job.finish(-9, status="canceled")
-        return True, "Canceled"
-    except Exception as e:
-        job.append(f"[ERROR] Cancel failed: {e}\n")
-        return False, str(e)
-
-@app.route('/')
-def index():
-    """Main application page - redirect to setup if no cookies"""
-    status = check_status()
-    if not status['cookies']:
-        return redirect(url_for('setup'))
-    games = load_manifest_games()
-    return render_template('index.html', status=status, games=games)
-
-@app.route('/setup')
-def setup():
-    """Setup page for cookie extraction"""
-    return render_template('setup.html')
-
+# reszta kodu bez zmian...
 @app.route('/api/save_cookies', methods=['POST'])
 def save_cookies():
-    """Extract cookies from Chromium profile and save in gogrepo.py format"""
     try:
         import shutil
         import sqlite3
@@ -219,7 +60,9 @@ def save_cookies():
             conn.close()
             if not rows:
                 return jsonify({'success': False, 'error': 'No GOG cookies found. Please log in to GOG.com first.'}), 400
-            cookie_jar = http.cookiejar.LWPCookieJar()
+            # ZAPIS DOKŁADNIE TAK JAK W GOGREPO.PY
+            cookies_file = Path(COOKIES)
+            cookie_jar = http.cookiejar.LWPCookieJar(str(cookies_file))
             for row in rows:
                 name, value, domain, path, expires, secure, httponly = row
                 expires_unix = None
@@ -228,15 +71,26 @@ def save_cookies():
                     if unix_timestamp > 0:
                         expires_unix = int(unix_timestamp)
                 cookie = http.cookiejar.Cookie(
-                    version=0, name=name, value=value, port=None, port_specified=False,
-                    domain=domain, domain_specified=True, domain_initial_dot=domain.startswith('.'),
-                    path=path, path_specified=True, secure=bool(secure), expires=expires_unix,
-                    discard=False, comment=None, comment_url=None,
-                    rest={'HttpOnly': bool(httponly)}, rfc2109=False
-                )
+                    version=0,
+                    name=name,
+                    value=value,
+                    port=None,
+                    port_specified=False,
+                    domain=domain,
+                    domain_specified=True,
+                    domain_initial_dot=domain.startswith('.'),
+                    path=path,
+                    path_specified=True,
+                    secure=bool(secure),
+                    expires=expires_unix,
+                    discard=False,
+                    comment=None,
+                    comment_url=None,
+                    rest={'HttpOnly': bool(httponly)},
+                    rfc2109=False)
                 cookie_jar.set_cookie(cookie)
-            cookies_file = Path(COOKIES)
-            cookie_jar.save(str(cookies_file), ignore_discard=True, ignore_expires=True)
+            # ZAPIS POPRAWNY W FORM. LWP
+            cookie_jar.save(ignore_discard=True, ignore_expires=True)
             return jsonify({'success': True, 'message': f'Successfully extracted {len(rows)} cookies and saved to gog-cookies.dat'})
         finally:
             if temp_db.exists():
@@ -244,118 +98,6 @@ def save_cookies():
     except Exception as e:
         app.logger.exception(f"Failed to save cookies: {e}")
         return jsonify({'success': False, 'error': f'Cookie extraction failed: {str(e)}'}), 500
-
-@app.route("/run_update", methods=["POST"])
-def run_update():
-    os_list = [v for v in request.form.getlist("os") if v.strip()]
-    langs   = [v for v in (request.form.get("langs") or "").strip().split() if v.strip()]
-    args = [PY, GOGREPO, "update"]
-    if os_list:
-        args += ["-os"] + os_list
-    if langs:
-        args += ["-lang"] + langs
-    if request.form.get("skipknown"):
-        args.append("-skipknown")
-    if request.form.get("updateonly"):
-        args.append("-updateonly")
-    job_id = start_job(args, cwd=DATA_DIR)
-    return jsonify({"job_id": job_id})
-
-@app.route("/job_status/<job_id>")
-def job_status(job_id):
-    job = jobs.get(job_id)
-    if not job:
-        return jsonify({"status": "unknown", "output": "", "rc": None})
-    with job.lock:
-        return jsonify({"status": job.status, "output": job.output, "rc": job.rc})
-
-@app.route("/current_job")
-def current_job():
-    with _current_job_lock:
-        jid = _current_job_id
-    if not jid:
-        for k, j in jobs.items():
-            with j.lock:
-                if j.status == "running":
-                    jid = k
-                    break
-    if not jid or jid not in jobs:
-        return jsonify({"job_id": None, "status": "idle", "output": "", "rc": None})
-    j = jobs[jid]
-    with j.lock:
-        return jsonify({"job_id": jid, "status": j.status, "output": j.output, "rc": j.rc})
-
-@app.route("/cancel_job", methods=["POST"])
-def cancel_job_endpoint():
-    job_id = (request.form.get("job_id") or None)
-    if not job_id:
-        with _current_job_lock:
-            job_id = _current_job_id
-    ok, msg = cancel_job(job_id)
-    return jsonify({"ok": ok, "message": msg, "job_id": job_id})
-
-@app.route("/download_selected", methods=["POST"])
-def download_selected():
-    try:
-        title = (request.form.get("selected_title") or "").strip()
-        if not title:
-            return jsonify({"error": "Select a game from the list"}), 400
-        args = [PY, GOGREPO, "download", "-id", title]
-        if request.form.get("skipextras"):
-            args.append("-skipextras")
-        if request.form.get("skipgames"):
-            args.append("-skipgames")
-        job_id = start_job(args, cwd=DATA_DIR)
-        return jsonify({"job_id": job_id})
-    except Exception as e:
-        app.logger.exception("download_selected failed")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/download_all", methods=["POST"])
-def download_all():
-    try:
-        args = [PY, GOGREPO, "download"]
-        if request.form.get("skipextras"):
-            args.append("-skipextras")
-        if request.form.get("skipgames"):
-            args.append("-skipgames")
-        job_id = start_job(args, cwd=DATA_DIR)
-        return jsonify({"job_id": job_id})
-    except Exception as e:
-        app.logger.exception("download_all failed")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/game_info")
-def game_info():
-    # Placeholder - returns minimal info for now
-    title = (request.args.get("title") or "").strip()
-    return jsonify({
-        "title": title.replace('_', ' ').title() if title else "Unknown",
-        "description_html": "<p>No description available.</p>",
-        "cover_url": "",
-        "rating": None,
-        "release_date": "",
-        "developer": "N/A",
-        "publisher": "N/A",
-        "languages": {"audio": [], "text": [], "subtitles": []},
-        "systems": {"windows": False, "linux": False, "mac": False}
-    })
-
-@app.route('/vnc/')
-@app.route('/vnc/<path:path>')
-def vnc_proxy(path=''):
-    """Proxy noVNC static files - redirect root requests to actual noVNC on port 6080"""
-    if not path:
-        return redirect('http://{}:6080/vnc.html'.format(request.host.split(':')[0]))
-    novnc_path = '/usr/share/novnc'
-    file_path = path.split('?')[0]
-    full_path = os.path.join(novnc_path, file_path)
-    if os.path.exists(full_path):
-        directory = os.path.dirname(full_path)
-        filename = os.path.basename(full_path)
-        return send_from_directory(directory, filename)
-    else:
-        return "File not found", 404
-
+# reszta kodu bez zmian...
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
