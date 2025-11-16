@@ -18,6 +18,9 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, send_from_directory
 
+# Import VNC browser manager
+from vnc_browser import get_browser_manager
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev")
 
@@ -691,6 +694,10 @@ login_children = {}
 
 @app.route("/")
 def index():
+    # Check if cookies exist - if not, redirect to setup
+    if not os.path.exists(COOKIES):
+        return redirect(url_for("setup"))
+    
     status = {
         "cookies": os.path.exists(COOKIES),
         "manifest": os.path.exists(MANIFEST),
@@ -699,6 +706,74 @@ def index():
     }
     games = load_manifest_games()
     return render_template("index.html", status=status, games=games)
+
+# ======= NEW VNC BROWSER SETUP ROUTES =======
+
+@app.route("/setup")
+def setup():
+    """Setup page with VNC browser for interactive login"""
+    browser_mgr = get_browser_manager()
+    status = browser_mgr.get_status()
+    status['novnc_port'] = os.environ.get('NOVNC_PORT', '6080')
+    return render_template("setup.html", status=status)
+
+@app.route("/api/browser/start", methods=["POST"])
+def api_browser_start():
+    """Start VNC browser session"""
+    try:
+        browser_mgr = get_browser_manager()
+        url = request.json.get('url', 'https://www.gog.com/') if request.is_json else 'https://www.gog.com/'
+        success = browser_mgr.start_browser(url)
+        return jsonify({
+            "success": success,
+            "message": "Browser started" if success else "Failed to start browser"
+        })
+    except Exception as e:
+        app.logger.exception("Failed to start browser")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/browser/stop", methods=["POST"])
+def api_browser_stop():
+    """Stop VNC browser session"""
+    try:
+        browser_mgr = get_browser_manager()
+        success = browser_mgr.stop_browser()
+        return jsonify({
+            "success": success,
+            "message": "Browser stopped" if success else "Failed to stop browser"
+        })
+    except Exception as e:
+        app.logger.exception("Failed to stop browser")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/browser/status", methods=["GET"])
+def api_browser_status():
+    """Get browser and cookies status"""
+    try:
+        browser_mgr = get_browser_manager()
+        status = browser_mgr.get_status()
+        return jsonify(status)
+    except Exception as e:
+        app.logger.exception("Failed to get status")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/cookies/extract", methods=["POST"])
+def api_cookies_extract():
+    """Extract cookies from browser and save for gogrepo"""
+    try:
+        browser_mgr = get_browser_manager()
+        result = browser_mgr.extract_cookies()
+        return jsonify(result)
+    except Exception as e:
+        app.logger.exception("Failed to extract cookies")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/skip_setup", methods=["POST"])
+def api_skip_setup():
+    """Skip setup and go to main app (for testing)"""
+    return jsonify({"success": True, "redirect": url_for("index")})
+
+# ======= END VNC BROWSER SETUP ROUTES =======
 
 @app.route("/login", methods=["POST"])
 def login():
