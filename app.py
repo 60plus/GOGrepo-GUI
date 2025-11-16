@@ -1,16 +1,32 @@
-from flask import Flask, render_template, jsonify, send_file, request
+from flask import Flask, render_template, jsonify, send_file, request, redirect, url_for
 import os
+from pathlib import Path
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['GOGREPO_DATA_DIR'] = os.environ.get('GOGREPO_DATA_DIR', '/app/data')
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'change-me-in-production')
+
+def check_status():
+    """Check if cookies exist"""
+    cookies_file = Path(app.config['GOGREPO_DATA_DIR']) / 'gog-cookies.dat'
+    return {
+        'cookies': cookies_file.exists()
+    }
 
 @app.route('/')
 def index():
-    # Główna aplikacja GOGrepo-GUI (możesz podpiąć swoją stronę główną tutaj)
-    return render_template('index.html')
+    """Main application page - redirect to setup if no cookies"""
+    status = check_status()
+    
+    if not status['cookies']:
+        return redirect(url_for('setup'))
+    
+    # If cookies exist, render main app
+    return render_template('index.html', status=status)
 
 @app.route('/setup')
 def setup():
+    """Setup page for cookie extraction"""
     return render_template('setup.html')
 
 @app.route('/api/save_cookies', methods=['POST'])
@@ -127,7 +143,5 @@ def vnc_proxy(path):
     else:
         return "File not found", 404
 
-# Dodaj tu swoje pozostałe endpointy GOGrepo-GUI jeśli masz!
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=False)
