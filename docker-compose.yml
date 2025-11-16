@@ -5,8 +5,7 @@ services:
     image: gogrepo-gui:test
     container_name: gogrepo-gui
     ports:
-      - "8080:8080"   # Flask web UI
-      - "6080:6080"   # noVNC web interface
+      - "8080:8080"   # Main UI with noVNC proxy (all-in-one)
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me}
       - GOGREPO_DATA_DIR=/app/data
