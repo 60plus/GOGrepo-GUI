@@ -12,11 +12,23 @@ sleep 2
 DISPLAY=:99 fluxbox &
 sleep 2
 
-# Start Chromium (always visible)
+# Start Chromium (with robust arguments for Docker)
 CHROMIUM_PROFILE=/app/chrome-profile
 rm -rf "$CHROMIUM_PROFILE"
 mkdir -p "$CHROMIUM_PROFILE"
-DISPLAY=:99 chromium --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=$CHROMIUM_PROFILE --window-size=1200,900 --no-first-run --no-default-browser-check "https://www.gog.com/" &
+DISPLAY=:99 chromium \
+  --no-sandbox \
+  --disable-dev-shm-usage \
+  --disable-gpu \
+  --disable-software-rasterizer \
+  --disable-extensions \
+  --disable-setuid-sandbox \
+  --single-process \
+  --user-data-dir=$CHROMIUM_PROFILE \
+  --window-size=1200,900 \
+  --no-first-run \
+  --no-default-browser-check \
+  "https://www.gog.com/" &
 sleep 5
 
 # Start x11vnc
