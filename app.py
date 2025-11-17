@@ -1,4 +1,4 @@
-... (wszystko jak wcześniej) ...
+...(wszystko jak wcześniej)...
 @app.route('/api/save_cookies', methods=['POST'])
 def save_cookies():
     try:
@@ -21,8 +21,8 @@ def save_cookies():
             if not rows:
                 return jsonify({'success': False, 'error': 'No GOG cookies found. Please log in to GOG.com first.'}), 400
             cookies_file = Path(COOKIES)
-            from http.cookiejar import MozillaCookieJar
-            cookie_jar = MozillaCookieJar(str(cookies_file))
+            from http.cookiejar import LWPCookieJar
+            cookie_jar = LWPCookieJar(str(cookies_file))
             for row in rows:
                 name, value, domain, path, expires, secure, httponly = row
                 expires_unix = None
@@ -49,11 +49,8 @@ def save_cookies():
                     rest={'HttpOnly': bool(httponly)},
                     rfc2109=False)
                 cookie_jar.set_cookie(cookie)
-            # Ensure Netscape header
-            if not cookies_file.exists() or not cookies_file.read_text().startswith('# Netscape HTTP Cookie File'):
-                cookie_jar.save(ignore_discard=True, ignore_expires=True)
-            else:
-                cookie_jar.save(ignore_discard=True, ignore_expires=True)
+            # Zapis do LWP (Set-Cookie3) — poprawny format dla gogrepo.py
+            cookie_jar.save(ignore_discard=True, ignore_expires=True)
             return jsonify({'success': True, 'message': f'Successfully extracted {len(rows)} cookies and saved to gog-cookies.dat'})
         finally:
             if temp_db.exists():
@@ -61,4 +58,4 @@ def save_cookies():
     except Exception as e:
         app.logger.exception(f"Failed to save cookies: {e}")
         return jsonify({'success': False, 'error': f'Cookie extraction failed: {str(e)}'}), 500
-... (reszta kodu bez zmian) ...
+...(reszta kodu jak wcześniej)...
